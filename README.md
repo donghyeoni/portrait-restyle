@@ -16,6 +16,7 @@ flowchart TB
     subgraph team["팀 담당 — 백엔드 · 프론트 · 인프라"]
         FE["프론트엔드<br/>사진 업로드 · 카드 선택 · 결과 표시"]
         BE["백엔드 (Spring)<br/>생성 요청 · 상태 관리 · 콜백 수신"]
+        IMG["이미지 워커 (Java)<br/>원본 리사이즈 · 원본 사진 N 카드 누끼 요청"]
         MQ[("RabbitMQ<br/>작업 큐 · cpu / gpu 분리")]
         S3[("AWS S3<br/>원본 · 결과 이미지")]
         GEM["Gemini 워커<br/>SSR 카드 (백엔드팀)"]
@@ -23,15 +24,18 @@ flowchart TB
 
     subgraph mine["내가 담당 — portrait-restyle (이 저장소)"]
         W["EC2 CPU 워커<br/>큐 소비 · 카드 분기 · S3 업로드 · 콜백"]
-        CUT["cutout-cpu<br/>BiRefNet 인물 누끼"]
-        GPU["GPU 모델 서비스<br/>ComfyUI + PuLID / Kontext<br/>+ 누끼 · 업스케일"]
+        GPU["GPU 모델 서비스 (GPU 1 · 직렬)<br/>ComfyUI + PuLID / Kontext + 업스케일<br/>BiRefNet 누끼 · /cutout · /card-cutout"]
+        CUT["cutout-cpu (EC2)<br/>BiRefNet CPU 누끼 · 정지 (롤백용)"]
     end
 
     FE --> BE
     BE -->|아이템 발행| MQ
     MQ --> W
-    W -->|"직업 · 12지신 · 원본 (CPU)"| CUT
-    W -->|"컨셉 · 웹툰 (역SSH 터널)"| GPU
+    W -->|"컨셉 · 웹툰 생성 (역SSH 터널)"| GPU
+    W -->|"원본 카드 · 마스크 없는 카드 누끼"| GPU
+    IMG -->|"원본 사진 N 카드 누끼 /card-cutout"| GPU
+    GEM -->|"SSR 카드 누끼 /cutout"| GPU
+    CUT -.->|"예비"| W
     GPU -->|"완성 이미지 반환"| W
     W -->|S3 업로드| S3
     W -->|"claim · progress · complete (HMAC)"| BE
@@ -45,8 +49,10 @@ flowchart TB
 1. 사용자가 프론트에서 증명사진을 올리고 카드를 고른다.
 2. 백엔드가 생성 요청을 만들고, 카드(아이템)별로 RabbitMQ 큐에 발행한다.
 3. **EC2 CPU 워커**가 큐를 소비해 카드 종류에 따라 분기한다.
-   - **직업 · 12지신 · 원본** → EC2 CPU에서 처리(얼굴 교체 / 원본 크롭) 후 누끼.
+   - **직업 · 12지신** → EC2 CPU에서 얼굴 교체 후 **사전 계산 마스크**로 누끼(AI 모델 없음).
+   - **원본** → EC2 CPU에서 카드 규격 크롭, 누끼는 GPU 모델 서비스 `/cutout`으로.
    - **컨셉 · 웹툰** → 역방향 SSH 터널로 **GPU 모델 서비스**에 넘겨 생성 + 누끼.
+   - BiRefNet 누끼는 전부 GPU 모델 서비스 한 곳에서 처리한다. 백엔드의 이미지 워커(원본 사진 N 카드)와 Gemini 워커(SSR)도 같은 터널로 같은 서비스를 부르며, 생성과 누끼는 하나의 락으로 **직렬** 처리된다(2026-09-16).
 4. 워커가 결과를 S3에 올리고, 백엔드에 `claim → progress → complete` 콜백(HMAC 서명)을 보낸다.
 5. 백엔드가 결과 이미지를 프론트에 내려 카드로 보여준다.
 
@@ -72,14 +78,14 @@ flowchart TB
 - 상반신 크롭(카드 규격 정규화) · 4x 업스케일 · 리터치.
 
 ### 3. 서빙 아키텍처
-- **GPU 모델 서비스** — FastAPI가 ComfyUI를 오케스트레이션. `/generate` 동기 처리(원본 → 전처리 → 엔진 → 누끼 → 반환).
+- **GPU 모델 서비스** — FastAPI가 ComfyUI를 오케스트레이션. `/generate` 동기 처리(원본 → 전처리 → 엔진 → 누끼 → 반환)에 더해 `/cutout`(RGBA PNG)·`/card-cutout`(카드 규격 896×1152 WebP) 누끼 엔드포인트를 제공한다. 세 엔드포인트는 같은 락을 공유해 GPU 작업이 한 번에 하나만 돈다.
 - **EC2 CPU 워커** — RabbitMQ 소비 → 카드별 분기 → S3 업로드 → 백엔드 콜백(HMAC-SHA256). 하트비트·재시도·멱등 처리 포함.
-- **하이브리드 배치** — 가벼운 카드·누끼는 EC2 CPU, 무거운 생성·누끼는 GPU. 단일 GPU를 그림 전용으로 두어 처리량을 끌어올렸다.
+- **하이브리드 배치** — 생성은 가벼운 카드(inswapper)는 EC2 CPU, 무거운 카드(PuLID·Kontext)는 GPU. BiRefNet 누끼는 GPU 서비스 한 곳으로 모았다. EC2에서 돌리던 BiRefNet은 장당 RAM 7.4GB가 필요해 15GB 호스트에서 OOM을 냈고, GPU에서는 장당 0.4~0.8초로 끝난다.
 - **역방향 SSH 터널** — 인바운드가 막힌 개발 GPU 서버를 EC2에서 안전하게 호출.
 
 ### 4. 성능 최적화
 - **사전 계산 마스크** — 직업·12지신 누끼에서 AI 모델을 제거(장당 수 초 → 밀리초). inswapper가 얼굴 영역만 바꾸는 점을 이용해 참고 이미지별 마스크를 미리 계산.
-- **누끼 오프로드** — 누끼를 CPU 워커로 옮겨 단일 GPU 처리량 **+42%**.
+- **누끼 오프로드** — 누끼를 CPU 워커로 옮겨 단일 GPU 처리량 **+42%** (09-11). 이후 사전 계산 마스크가 CPU 누끼 대부분을 대체하자, 남은 BiRefNet 누끼는 EC2 메모리 한계 때문에 GPU 서비스로 되돌려 직렬 처리한다(09-16). 원본 사진 N 카드 누끼 40~60초 → **1~2초**.
 - **웹툰 용량 정렬** — 화질 손실 없이 업스케일 배수를 조정해 3.2MB → ~1.5MB.
 - 측정값은 [docs/PERF_LOG.md](docs/PERF_LOG.md)에 기록.
 
@@ -94,10 +100,14 @@ flowchart TB
 
 | 카드 | 처리 위치 | 방식 | 누끼 |
 |---|---|---|---|
-| 직업 · 12지신 | EC2 CPU | inswapper (얼굴 교체) | 사전 계산 마스크 |
-| 원본 | EC2 CPU | 원본 크롭 (생성 없음) | BiRefNet (cutout-cpu) |
+| 직업 · 12지신 | EC2 CPU | inswapper (얼굴 교체) | 사전 계산 마스크 (없을 때만 GPU `/cutout`) |
+| 원본 | EC2 CPU | 원본 크롭 (생성 없음) | GPU `/cutout` (BiRefNet CUDA) |
 | 컨셉 | GPU | FLUX.1-dev + PuLID | BiRefNet (CUDA) |
 | 웹툰 | GPU | Kontext + LoRA + 업스케일 | BiRefNet (CUDA) |
+| 원본 사진 N 카드 (백엔드 이미지 워커) | — | 리사이즈만 | GPU `/card-cutout` (BiRefNet CUDA) |
+| SSR (백엔드 Gemini 워커) | Gemini API | 매거진 표지 생성 | GPU `/cutout` (BiRefNet CUDA) |
+
+GPU 서비스의 생성·누끼는 하나의 락으로 직렬 처리된다. EC2의 `cutout-cpu` 컨테이너는 정지 상태로 두고 롤백용으로만 보관한다.
 
 ---
 
@@ -106,7 +116,7 @@ flowchart TB
 - **생성**: FLUX.1-dev, PuLID-FLUX, FLUX.1 Kontext dev, InsightFace(inswapper), 자체 LoRA
 - **누끼/후처리**: BiRefNet-portrait, 4x-UltraSharp, OpenCV
 - **서빙**: FastAPI, ComfyUI, RabbitMQ(pika), boto3(S3), Docker
-- **인프라**: EC2(CPU 워커·누끼), 개발용 GPU 서버(TLJH), 역방향 SSH 터널
+- **인프라**: EC2(CPU 워커), 개발용 GPU 서버(TLJH · 생성 + 누끼), 역방향 SSH 터널
 
 기반 모델은 전부 사전학습이고, 자체 학습 가중치는 웹툰 LoRA 하나다. 가중치는 저장소에 포함하지 않으며 `bash scripts/download_models.sh`로 받는다. 목록·용량·출처·라이선스는 [models/registry.yaml](models/registry.yaml).
 
@@ -125,7 +135,7 @@ runner.py        매니페스트를 읽어 로컬 배치 생성
 serving/
   gpu/           GPU 모델 서비스 (FastAPI + ComfyUI 기동)
   worker/        EC2 CPU 워커 (큐 소비·분기·콜백·업로드)
-  cutout-cpu/    EC2 누끼 컨테이너 (BiRefNet)
+  cutout-cpu/    EC2 누끼 컨테이너 (BiRefNet CPU) — 09-16부터 정지, 롤백용
   common/        아이템·출력·전처리·S3 공용
 eval/            정체성(ArcFace)·화풍·심미 점수
 scripts/         모델 다운로드·마스크 사전계산·원격 실행·배포

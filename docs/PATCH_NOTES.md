@@ -7,8 +7,14 @@ AI 카드 생성 파이프라인의 날짜별 개발 이력. 각 항목은 실�
 
 ---
 
-## 2026-09-16 — 원본 카드 배포 · 오픈소스 공개
+## 2026-09-16 — 원본 카드 배포 · 오픈소스 공개 · 누끼 GPU 이관
 
+- 🐛 **EC2 BiRefNet OOM 규명** — 원본 사진 N 카드 누끼를 EC2 CPU 컨테이너로 돌리자 장당 RAM 최대 **7.4GB**로 15GB 호스트가 커널 OOM을 두 번 냈다. int8 동적 양자화(가중치 973MB → 250MB)는 속도만 15% 빨라지고 메모리는 그대로(6.1GB): 피크는 가중치가 아니라 1024×1024 고정 입력의 중간 활성값이다. 아레나 `kSameAsRequested`는 12GB로 더 나빴다.
+- ✨ **GPU 서비스 누끼 엔드포인트** — `serving/gpu/service.py`에 `/cutout`(RGBA PNG)·`/card-cutout`(896×1152 lossless WebP, `steps/cardcrop.py`) 추가. Bearer 토큰 필수, `/generate`와 같은 `busy` 락이라 **생성 + 누끼 3종(SR·원본 N·SSR)이 GPU 1에서 직렬**로 돈다. `CUTOUT_CUDA_DEVICE`로 누끼 장치를 분리할 수 있다.
+- 🚀 **누끼 경로 전환** — 백엔드 이미지 워커·Gemini 워커·EC2 카탈로그 워커(`CUTOUT_TOKEN_FILE`, `portrait-worker:v2`)가 역SSH 터널로 GPU 서비스를 부른다. EC2 `cutout-cpu` 컨테이너는 정지(롤백용 보관). EC2 여유 RAM **3.5GB → 12GB**.
+  - GPU 1(FLUX 상주, 여유 약 1.2GB)에서 CUDA로 동작: 첫 장 6.9s(모델 로드), 이후 **0.4~0.8s**. 원본 사진 N 카드 누끼 **40~60s → 1~2s**(실사용자 5명 확인).
+  - SSR 매거진 카드에서 제목 글자·배경이 알파에서 빠지고 인물만 남는 것을 실데이터로 확인.
+- 🔧 **카탈로그 워커 예비 누끼** — 사전 마스크가 없는 참고 이미지만 GPU `/cutout`으로 보낸다(`CUTOUT_TOKEN`/`CUTOUT_TOKEN_FILE` 지원).
 - 🚀 **원본 카드 실서버 배포** — EC2 워커 이미지 재빌드 + 재생성, 카탈로그에 `ORIGINAL`(N등급) 노출. 라이브에서 직업·12지신 카드 정상 처리(7~12초) 확인.
 - ✨ **저장소 공개** — README에 전체 서비스 구조도(Mermaid) + 기여 정리, [API_SPEC.md](API_SPEC.md)(백엔드↔AI 명세) 작성.
 - 🐛 **인프라 식별자 스크럽** — 공개 전 AWS 계정ID·버킷명·서버 IP·도메인을 플레이스홀더로 치환, 히스토리까지 정리.
