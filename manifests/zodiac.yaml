@@ -1,0 +1,29 @@
+# 12지신 코스튬 — 참고 이미지에 입력 얼굴을 교체해 넣는다 (엔진 inswapper).
+id: zodiac
+display: 12지신
+tier: N
+version: zodiac-v3
+engine: inswapper
+enabled: true
+
+reference: data/reference/zodiac   # {male,female}/<preset>.jpg
+glasses: kontext
+
+output:
+  width: 896
+  height: 1152
+  dir: data/output/zodiac
+
+presets:
+  MOUSE: mouse
+  COW: cow
+  TIGER: tiger
+  RABBIT: rabbit
+  DRAGON: dragon
+  SNAKE: snake
+  HORSE: horse
+  SHEEP: sheep
+  MONKEY: monkey
+  CHICKEN: chicken
+  DOG: dog
+  PIG: pig

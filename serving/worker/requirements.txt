@@ -1,0 +1,14 @@
+# EC2 워커 (CPU). torch 는 Dockerfile 에서 CPU 휠로 먼저 설치
+pika>=1.3
+boto3>=1.34
+requests>=2.31
+google-auth>=2.29
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pyyaml>=6
+numpy<3
+opencv-python-headless>=4.9
+pillow>=10
+insightface==0.7.3
+onnxruntime>=1.20
+facexlib>=0.3.0

@@ -1,0 +1,79 @@
+# EC2 배치 (큐 분리 워커 풀). GPU 서버는 그림만, EC2 가 직업·12지신·누끼·업로드·콜백.
+#   RabbitMQ 는 EC2 127.0.0.1:5672 (로컬). 그림 서비스는 역터널로 127.0.0.1:18080 -> GPU 서버 8080.
+#   S3 는 EC2 IAM 역할 사용(키 불필요). 모든 HTTP 는 127.0.0.1 에만.
+#
+#   cd /opt/<project>/ai-worker && sudo docker compose -f serving/docker-compose.ec2.yml up -d
+#
+# 처음에는 worker.env 의 AI_WORKER_CONSUMER_ENABLED=false 로 소비 안 하고 /health·/collections 만.
+# 스모크 통과 후 true 로 바꿔 재기동.
+x-worker: &worker
+  image: portrait-worker:v1
+  network_mode: host
+  env_file: /etc/<project>/ai-worker/worker.env
+  volumes:
+    - /etc/<project>/ai-worker/secrets:/secrets:ro
+  restart: unless-stopped
+  depends_on:
+    cutout:
+      condition: service_healthy
+  deploy:
+    resources:
+      limits:
+        cpus: "1.5"
+        memory: 3g
+
+services:
+  cutout:
+    image: motion-cutout:1.0
+    container_name: motion-cutout
+    network_mode: host
+    command: ["uvicorn", "app.server:app", "--host", "127.0.0.1", "--port", "8001", "--workers", "1"]
+    environment:
+      OMP_NUM_THREADS: "2"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "3"
+          memory: 8g
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+
+  worker-cpu-1:
+    <<: *worker
+    container_name: ai-worker-cpu-1
+    environment:
+      RABBIT_QUEUE: motion.ai.generate.item
+      RABBIT_ROUTING_KEY: ai.generate.item
+      WORKER_ID: ec2-cpu-01
+      HTTP_PORT: "8090"
+
+  worker-cpu-2:
+    <<: *worker
+    container_name: ai-worker-cpu-2
+    environment:
+      RABBIT_QUEUE: motion.ai.generate.item
+      RABBIT_ROUTING_KEY: ai.generate.item
+      WORKER_ID: ec2-cpu-02
+      HTTP_PORT: "8091"
+
+  worker-gpu-1:
+    <<: *worker
+    container_name: ai-worker-gpu-1
+    environment:
+      RABBIT_QUEUE: motion.ai.generate.item
+      RABBIT_ROUTING_KEY: ai.generate.item
+      WORKER_ID: ec2-gpu-01
+      HTTP_PORT: "8092"
+
+  worker-gpu-2:
+    <<: *worker
+    container_name: ai-worker-gpu-2
+    environment:
+      RABBIT_QUEUE: motion.ai.generate.item
+      RABBIT_ROUTING_KEY: ai.generate.item
+      WORKER_ID: ec2-gpu-02
+      HTTP_PORT: "8093"

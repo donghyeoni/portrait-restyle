@@ -1,0 +1,14 @@
+# Cloud Run GPU 서비스 (torch·ComfyUI 요구사항은 Dockerfile 에서 먼저 설치)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+requests>=2.31
+pyyaml>=6
+numpy<3
+opencv-python-headless>=4.9
+pillow>=10
+insightface==0.7.3
+onnxruntime-gpu>=1.20
+facexlib>=0.3.0
+rembg==2.0.83
+spandrel>=0.4
+python-multipart>=0.0.9

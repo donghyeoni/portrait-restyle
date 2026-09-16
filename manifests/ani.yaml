@@ -1,0 +1,40 @@
+# 웹툰풍 — 사진을 참조로 넣고 그대로 다시 그린다 (엔진 kontext: FLUX.1 Kontext dev + 자체 LoRA).
+# 참고본(data/reference/ani)은 구도·머리·옷·안경이 사진 그대로라 생성이 아니라 편집이 맞다.
+# 문장만으로 닿지 않는 화풍 차이는 참고본 7쌍으로 학습한 LoRA 가 채운다 (docs/DECISIONS.md "웹툰풍 LoRA").
+id: ani
+display: 웹툰
+tier: SR
+version: ani-v2
+engine: kontext
+enabled: true
+
+reference: data/reference/ani
+
+output:
+  width: 896
+  height: 1152
+  dir: data/output/ani          # {man,woman}/NNN/webtoon.png
+  upscale: 1.44                 # 4x-UltraSharp -> 1290x1659. 평면 화풍이라 얼굴 디테일 손실 없이 파일 ~3.2MB→~1.5MB (용량 정렬)
+
+kontext:
+  guidance: 2.5
+  steps: 20
+  seed: 1000
+
+# 파일이 없으면 LoRA 없이 문장만으로 돈다. 트리거 단어는 프롬프트 맨 앞에 붙인다.
+lora:
+  name: ani_webtoon_kontext/v1_1500.safetensors    # models/loras/ 기준. 1500스텝 x 강도 1.0 채택
+  strength: 1.0
+  trigger: webtoon_style
+
+presets:
+  WEBTOON:
+    key: webtoon
+    # 1차에서 webtoon 계열, 2차에서 성인 비율·연한 배경(A2)으로 확정. "anime" 는 없는 안경을 지어냈다
+    prompt: >-
+      Convert this photo into a clean Korean webtoon style illustration. Crisp thin dark line art,
+      flat cel shading with soft two-tone shadows under the jaw and hair, smooth matte pastel skin,
+      adult semi-realistic facial proportions exactly as in the photo (not cute, not chibi, same face
+      shape, same eye shape and size), a few thin highlight strands in the hair, very light off-white
+      to pale grey-blue gradient background. Keep the exact same person, pose, hairstyle, clothing,
+      tie and eyeglasses. High quality portrait illustration.

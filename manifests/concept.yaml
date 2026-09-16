@@ -1,0 +1,78 @@
+# 컨셉 사진 — 얼굴 임베딩만 가져가 장면을 새로 그린다 (엔진 pulid: FLUX.1-dev + PuLID-FLUX v0.9.1).
+# 서비스에 나가는 프리셋은 CYBERPUNK · VAMPIRE 둘. 안 쓰는 넷(판타지 귀족·한복·기모노·치파오)은
+# manifests/backlog/concept_legacy.yaml 에 따로 두었다 (결과물은 data/backlog/) (러너·코드 표에 나오지 않음).
+#
+# 문구 규칙 (실측 근거는 docs/DECISIONS.md):
+#   - 네거티브는 FLUX 에서 아무 일도 하지 않는다 (cfg 1.0). 막을 것은 포지티브에 형태로 적는다.
+#   - subject 는 성별로 갈린다. {MODEST} {NECK} 자리에 common 의 구절이 들어간다.
+#   - 안경은 임베딩에 담기지 않아 사라진다. 쓴 사람만 common.glasses 를 주체 바로 뒤에 넣는다 (엔진이 처리).
+id: concept
+display: 컨셉
+tier: R
+version: concept-v4
+engine: pulid
+enabled: true
+
+output:
+  width: 896
+  height: 1152
+  dir: data/output/concept      # {man,woman}/NNN/<preset>.png
+
+# 엔진 기본값 (프리셋 params 가 덮어쓴다). 1.3/4.0 은 5종을 인형처럼 만들었다 -> 1.0/3.2
+pulid:
+  weight: 1.0
+  guidance: 3.2
+  steps: 22
+  seed: 1000
+
+common:
+  quality: >-
+    raw unretouched photograph, 85mm lens, natural skin texture with visible pores and fine lines,
+    subtle skin imperfections, realistic facial proportions, soft directional key light with gentle
+    shadow modelling, slight film grain, sharp focus on the eyes, natural neck and shoulder proportions
+  # 실존 인물이라 노출은 기본으로 막는다
+  modest: modest high neckline, fully covered shoulders
+  # 깃 위치를 말하지 않으면 턱과 옷깃 사이를 목으로 채워 목이 늘어난다 (정체성 변화 없이 교정됨)
+  neck: >-
+    short neck, the collar closes high at the base of the neck right under the chin,
+    head sitting low between broad shoulders
+  # "metal-framed" 만 쓰면 금테·작은 알. 색과 크기를 형태로 못박는다
+  glasses: >-
+    wearing eyeglasses with large perfectly round lenses in a very thin dark gunmetal grey wire frame
+
+presets:
+  CYBERPUNK:
+    key: cyberpunk
+    # 표지(발광 회로·임플란트·비)를 강화하고 프레이밍을 넓혀 화풍 점수 0.2224 -> 0.2381
+    subject_male: >-
+      photorealistic cyberpunk portrait of a man, masculine face, techwear jacket with glowing
+      circuit accents, high collar, glowing cyan circuit lines along the jacket collar and seams,
+      chrome temple implant with a lit indicator, holographic hud glow reflected in the eyes,
+      magenta and cyan neon rim light across the face, medium shot, upper body visible, wide
+      framing, subject small in frame
+    subject_female: >-
+      photorealistic cyberpunk portrait of a woman, feminine face, techwear jacket with glowing
+      circuit accents, high collar, glowing cyan circuit lines along the jacket collar and seams,
+      chrome temple implant with a lit indicator, holographic hud glow reflected in the eyes,
+      magenta and cyan neon rim light across the face, medium shot, upper body visible, wide
+      framing, subject small in frame
+    scene: >-
+      rain-slick night street, neon rim light, holographic signage bokeh, wet asphalt reflections,
+      heavy rain, dense holographic billboards, steam from a street vent, dark alley
+    # 네온 림라이트가 얼굴을 크게 바꾸는 화풍이라 PuLID 를 세게 걸면 서로 싸운다.
+    # 6명 실측: w1.0 g3.2 정체성 0.8117 / 화풍 0.2506 (채택), w1.3 g4.0 은 0.7495
+    params: {pulid_weight: 1.0, guidance: 3.2}
+
+  VAMPIRE:
+    key: vampire
+    subject_male: >-
+      photorealistic portrait of a gothic vampire nobleman, masculine face, defined jawline,
+      pale ashen skin, dark red iris, subtle sharp fangs, black velvet high collar coat with
+      silver damask embroidery, cravat
+    subject_female: >-
+      photorealistic portrait of a gothic vampire noblewoman, feminine face, pale ashen skin,
+      dark red iris, subtle sharp fangs, black velvet gown with lace high collar and silver
+      damask embroidery, dark choker, {MODEST}
+    scene: >-
+      dim gothic library, antique bookshelves, lit candelabra, deep red velvet curtain,
+      warm candlelight and cold shadow

@@ -1,0 +1,47 @@
+# 모델 가중치 (수십 GB)
+models/
+ComfyUI/
+venv/
+.venv/
+
+# 산출물
+outputs/
+eval/reports/
+
+# 데이터셋 — 실제 인물 얼굴과 상용 코스튬 제품 사진이라 추적하지 않는다.
+# gender.json 만 예외 (이름 -> 성별 매핑, 사진 아님).
+data/faces/
+!data/faces/gender.json
+data/zodiac/
+
+# 실제 인물 사진 방어선.
+# eval/reports/*.png 는 하위 디렉터리를 못 잡아 eval/reports/vangogh/ 의
+# 증명사진 그리드 2장이 히스토리에 들어갔던 적이 있다. 확장자로 한 번 더 막는다.
+# 문서용 이미지가 필요하면 git add -f 로 개별 승인한다.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.avif
+
+# 파이썬
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+Thumbs.db
+desktop.ini
+# 새 데이터 구조 (2026-09-03). 실존 인물 사진과 산출물 — 절대 올리지 않는다
+data/input/
+data/output/
+data/reference/
+
+# LoRA 학습 데이터·산출물 (실존 인물 사진 포함)
+train/
+data/_archive/
+manifests/backlog/
+data/backlog/
+serving/worker/.env
+serving/secrets/
+serving/cutout-cpu/models/

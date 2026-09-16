@@ -1,0 +1,366 @@
+{
+ "batch": {
+  "cpu": 20,
+  "gpu": 3
+ },
+ "runs": [
+  {
+   "summary": {
+    "workers": 1,
+    "makespan": 92.2,
+    "first_complete": 13.46,
+    "cpu20_done": 92.16,
+    "n_ok": 23,
+    "n_err": 0,
+    "cpu_avg_dur": 1.38,
+    "gpu_durs": {
+     "GPU/CYBERPUNK": 13.46,
+     "GPU/VAMPIRE": 13.62,
+     "GPU/WEBTOON": 37.56
+    }
+   },
+   "rows": [
+    {
+     "label": "GPU/CYBERPUNK",
+     "cat": "gpu",
+     "dur": 13.46,
+     "end_off": 13.46,
+     "err": null
+    },
+    {
+     "label": "jobs/artist",
+     "cat": "cpu",
+     "dur": 1.38,
+     "end_off": 14.84,
+     "err": null
+    },
+    {
+     "label": "jobs/constructionworker",
+     "cat": "cpu",
+     "dur": 1.34,
+     "end_off": 16.18,
+     "err": null
+    },
+    {
+     "label": "jobs/cook",
+     "cat": "cpu",
+     "dur": 1.25,
+     "end_off": 17.42,
+     "err": null
+    },
+    {
+     "label": "jobs/detective",
+     "cat": "cpu",
+     "dur": 1.44,
+     "end_off": 18.86,
+     "err": null
+    },
+    {
+     "label": "jobs/doctor",
+     "cat": "cpu",
+     "dur": 1.34,
+     "end_off": 20.2,
+     "err": null
+    },
+    {
+     "label": "jobs/firefighter",
+     "cat": "cpu",
+     "dur": 1.31,
+     "end_off": 21.51,
+     "err": null
+    },
+    {
+     "label": "jobs/magician",
+     "cat": "cpu",
+     "dur": 1.38,
+     "end_off": 22.89,
+     "err": null
+    },
+    {
+     "label": "GPU/VAMPIRE",
+     "cat": "gpu",
+     "dur": 13.62,
+     "end_off": 36.51,
+     "err": null
+    },
+    {
+     "label": "jobs/policeofficer",
+     "cat": "cpu",
+     "dur": 1.3,
+     "end_off": 37.81,
+     "err": null
+    },
+    {
+     "label": "zodiac/mouse",
+     "cat": "cpu",
+     "dur": 1.5,
+     "end_off": 39.31,
+     "err": null
+    },
+    {
+     "label": "zodiac/cow",
+     "cat": "cpu",
+     "dur": 1.5,
+     "end_off": 40.81,
+     "err": null
+    },
+    {
+     "label": "zodiac/tiger",
+     "cat": "cpu",
+     "dur": 1.43,
+     "end_off": 42.24,
+     "err": null
+    },
+    {
+     "label": "zodiac/rabbit",
+     "cat": "cpu",
+     "dur": 1.45,
+     "end_off": 43.69,
+     "err": null
+    },
+    {
+     "label": "zodiac/dragon",
+     "cat": "cpu",
+     "dur": 1.35,
+     "end_off": 45.04,
+     "err": null
+    },
+    {
+     "label": "zodiac/snake",
+     "cat": "cpu",
+     "dur": 1.29,
+     "end_off": 46.32,
+     "err": null
+    },
+    {
+     "label": "GPU/WEBTOON",
+     "cat": "gpu",
+     "dur": 37.56,
+     "end_off": 83.88,
+     "err": null
+    },
+    {
+     "label": "zodiac/horse",
+     "cat": "cpu",
+     "dur": 1.39,
+     "end_off": 85.27,
+     "err": null
+    },
+    {
+     "label": "zodiac/sheep",
+     "cat": "cpu",
+     "dur": 1.33,
+     "end_off": 86.6,
+     "err": null
+    },
+    {
+     "label": "zodiac/monkey",
+     "cat": "cpu",
+     "dur": 1.42,
+     "end_off": 88.02,
+     "err": null
+    },
+    {
+     "label": "zodiac/chicken",
+     "cat": "cpu",
+     "dur": 1.38,
+     "end_off": 89.41,
+     "err": null
+    },
+    {
+     "label": "zodiac/dog",
+     "cat": "cpu",
+     "dur": 1.39,
+     "end_off": 90.8,
+     "err": null
+    },
+    {
+     "label": "zodiac/pig",
+     "cat": "cpu",
+     "dur": 1.37,
+     "end_off": 92.16,
+     "err": null
+    }
+   ]
+  },
+  {
+   "summary": {
+    "workers": 3,
+    "makespan": 71.4,
+    "first_complete": 1.9,
+    "cpu20_done": 28.68,
+    "n_ok": 23,
+    "n_err": 0,
+    "cpu_avg_dur": 1.58,
+    "gpu_durs": {
+     "GPU/CYBERPUNK": 20.32,
+     "GPU/VAMPIRE": 26.63,
+     "GPU/WEBTOON": 54.33
+    }
+   },
+   "rows": [
+    {
+     "label": "jobs/artist",
+     "cat": "cpu",
+     "dur": 1.9,
+     "end_off": 1.9,
+     "err": null
+    },
+    {
+     "label": "jobs/constructionworker",
+     "cat": "cpu",
+     "dur": 1.93,
+     "end_off": 1.93,
+     "err": null
+    },
+    {
+     "label": "jobs/cook",
+     "cat": "cpu",
+     "dur": 2.01,
+     "end_off": 3.91,
+     "err": null
+    },
+    {
+     "label": "jobs/detective",
+     "cat": "cpu",
+     "dur": 2.29,
+     "end_off": 4.22,
+     "err": null
+    },
+    {
+     "label": "jobs/doctor",
+     "cat": "cpu",
+     "dur": 1.97,
+     "end_off": 5.88,
+     "err": null
+    },
+    {
+     "label": "jobs/firefighter",
+     "cat": "cpu",
+     "dur": 2.0,
+     "end_off": 6.22,
+     "err": null
+    },
+    {
+     "label": "jobs/magician",
+     "cat": "cpu",
+     "dur": 1.39,
+     "end_off": 7.27,
+     "err": null
+    },
+    {
+     "label": "jobs/policeofficer",
+     "cat": "cpu",
+     "dur": 1.27,
+     "end_off": 8.54,
+     "err": null
+    },
+    {
+     "label": "zodiac/mouse",
+     "cat": "cpu",
+     "dur": 1.52,
+     "end_off": 10.06,
+     "err": null
+    },
+    {
+     "label": "zodiac/cow",
+     "cat": "cpu",
+     "dur": 1.49,
+     "end_off": 11.55,
+     "err": null
+    },
+    {
+     "label": "zodiac/tiger",
+     "cat": "cpu",
+     "dur": 1.43,
+     "end_off": 12.98,
+     "err": null
+    },
+    {
+     "label": "zodiac/rabbit",
+     "cat": "cpu",
+     "dur": 1.48,
+     "end_off": 14.46,
+     "err": null
+    },
+    {
+     "label": "zodiac/dragon",
+     "cat": "cpu",
+     "dur": 1.33,
+     "end_off": 15.79,
+     "err": null
+    },
+    {
+     "label": "zodiac/snake",
+     "cat": "cpu",
+     "dur": 1.33,
+     "end_off": 17.12,
+     "err": null
+    },
+    {
+     "label": "GPU/CYBERPUNK",
+     "cat": "gpu",
+     "dur": 20.32,
+     "end_off": 20.32,
+     "err": null
+    },
+    {
+     "label": "zodiac/horse",
+     "cat": "cpu",
+     "dur": 1.35,
+     "end_off": 21.68,
+     "err": null
+    },
+    {
+     "label": "zodiac/sheep",
+     "cat": "cpu",
+     "dur": 1.34,
+     "end_off": 23.02,
+     "err": null
+    },
+    {
+     "label": "zodiac/monkey",
+     "cat": "cpu",
+     "dur": 1.47,
+     "end_off": 24.49,
+     "err": null
+    },
+    {
+     "label": "zodiac/chicken",
+     "cat": "cpu",
+     "dur": 1.42,
+     "end_off": 25.91,
+     "err": null
+    },
+    {
+     "label": "zodiac/dog",
+     "cat": "cpu",
+     "dur": 1.39,
+     "end_off": 27.3,
+     "err": null
+    },
+    {
+     "label": "zodiac/pig",
+     "cat": "cpu",
+     "dur": 1.38,
+     "end_off": 28.68,
+     "err": null
+    },
+    {
+     "label": "GPU/VAMPIRE",
+     "cat": "gpu",
+     "dur": 26.63,
+     "end_off": 32.85,
+     "err": null
+    },
+    {
+     "label": "GPU/WEBTOON",
+     "cat": "gpu",
+     "dur": 54.33,
+     "end_off": 71.45,
+     "err": null
+    }
+   ]
+  }
+ ]
+}

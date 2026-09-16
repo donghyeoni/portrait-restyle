@@ -1,0 +1,28 @@
+# 직업 코스튬 8종 — 참고 이미지에 입력 얼굴을 교체해 넣는다 (엔진 inswapper).
+id: jobs
+display: 직업
+tier: N
+version: jobs-v3
+engine: inswapper
+enabled: true
+
+# data/reference/jobs/{male,female}/<preset>.jpg  — 성별은 입력이 준 값을 쓴다 (판별하지 않음)
+reference: data/reference/jobs
+# 안경 쓴 사람만 Kontext 로 원본 안경을 눈 영역에 그려 넣는다 (off|auto|inpaint|kontext|paste|on)
+glasses: kontext
+
+output:
+  width: 896
+  height: 1152
+  dir: data/output/jobs        # {man,woman}/NNN/<preset>.png
+
+# stylePreset 코드 -> 참고 이미지 파일명 (확장자 제외)
+presets:
+  ARTIST: artist
+  CONSTRUCTION_WORKER: constructionworker
+  COOK: cook
+  DETECTIVE: detective
+  DOCTOR: doctor
+  FIREFIGHTER: firefighter
+  MAGICIAN: magician
+  POLICE_OFFICER: policeofficer

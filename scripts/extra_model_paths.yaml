@@ -1,0 +1,19 @@
+# ComfyUI 가 프로젝트 외부의 models/ 를 바라보게 하는 설정.
+# 클론 후 ComfyUI/extra_model_paths.yaml 로 복사한다.
+# 이렇게 두면 ComfyUI 재설치나 Docker 이전 시 가중치를 다시 받지 않아도 된다.
+
+portrait_restyle:
+    base_path: C:/Users/SSAFY/Desktop/portrait-restyle/models/
+    is_default: true
+
+    checkpoints: checkpoints
+    loras: loras
+    controlnet: controlnet
+    ipadapter: ipadapter
+    clip_vision: clip_vision
+    instantid: instantid
+    insightface: insightface
+    vae: vae
+    unet: unet
+    clip: clip
+    upscale_models: upscale_models

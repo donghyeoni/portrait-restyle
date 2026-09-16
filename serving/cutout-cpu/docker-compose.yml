@@ -1,0 +1,23 @@
+services:
+  cutout:
+    image: motion-cutout:1.0
+    build: .
+    container_name: motion-cutout
+    ports:
+      - "8001:8001"          # remove this line if only other containers on the host call it
+    restart: unless-stopped
+    # EC2 t3.xlarge (4 vCPU / 16GB): leave 2 vCPU and ~10GB for nginx + Spring Boot + DB
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 6g           # model needs ~3-4GB; headroom avoids OOM kills during large images
+        reservations:
+          memory: 4g
+    environment:
+      OMP_NUM_THREADS: "2"   # match the cpu limit
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s

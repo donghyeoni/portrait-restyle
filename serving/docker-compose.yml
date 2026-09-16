@@ -1,0 +1,55 @@
+# EC2 배치 (백엔드 확정 2026-09-08): worker + cutout, Host 네트워크.
+#   RabbitMQ 가 Host loopback(127.0.0.1:5672)에만 열려 있어 컨테이너는 host network 로 돈다.
+#   카탈로그 8090·누끼 8001 도 127.0.0.1 에만 바인딩한다. 외부·GPU 서버에 공개하지 않는다.
+#
+# 예정 경로 (백엔드 배포):
+#   compose·배포 파일  /opt/<project>/ai-worker/            (이 파일 + cutout-cpu/, worker/ 빌드 컨텍스트 또는 미리 빌드된 이미지)
+#   환경변수           /etc/<project>/ai-worker/worker.env  (serving/worker/.env.example 참고)
+#   인증 파일          /etc/<project>/ai-worker/secrets/    (GPU_AUTH_CREDENTIALS_FILE, AWS 자격 증명 파일 등)
+#
+#   cd /opt/<project>/ai-worker && docker compose up -d
+services:
+  worker:
+    image: portrait-worker:v1            # 빌드: docker build -f serving/worker/Dockerfile -t portrait-worker:v1 <저장소 루트>
+    container_name: <ai-worker>
+    network_mode: host                    # RabbitMQ 127.0.0.1:5672, 카탈로그 127.0.0.1:8090 (HTTP_BIND)
+    env_file: /etc/<project>/ai-worker/worker.env
+    environment:
+      CUTOUT_URL: http://127.0.0.1:8001/cutout
+      HTTP_BIND: 127.0.0.1
+      HTTP_PORT: "8090"
+    volumes:
+      - /etc/<project>/ai-worker/secrets:/secrets:ro
+    depends_on:
+      cutout:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 5g
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8090/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+
+  cutout:
+    image: motion-cutout:1.0              # 빌드: docker build -t motion-cutout:1.0 serving/cutout-cpu  (모델 파일 동봉)
+    container_name: motion-cutout
+    network_mode: host
+    command: ["uvicorn", "app.server:app", "--host", "127.0.0.1", "--port", "8001", "--workers", "1"]
+    restart: unless-stopped
+    environment:
+      OMP_NUM_THREADS: "2"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
