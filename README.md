@@ -23,14 +23,14 @@ flowchart TB
     end
 
     subgraph mine["내가 담당 — portrait-restyle (이 저장소)"]
-        W["EC2 CPU 워커<br/>큐 소비 · 카드 분기 · S3 업로드 · 콜백"]
+        W["EC2 CPU 워커<br/>직업 · 12지신 생성 (inswapper) + 사전 마스크 누끼<br/>원본 크롭 · S3 업로드 · 콜백"]
         GPU["GPU 모델 서비스 (GPU 1 · 직렬)<br/>ComfyUI + PuLID / Kontext + 업스케일<br/>BiRefNet 누끼 · /cutout · /card-cutout"]
         CUT["cutout-cpu (EC2)<br/>BiRefNet CPU 누끼 · 정지 (롤백용)"]
     end
 
     FE --> BE
     BE -->|아이템 발행| MQ
-    MQ --> W
+    MQ -->|"직업 8 · 12지신 12 · 원본 · 컨셉 · 웹툰"| W
     W -->|"컨셉 · 웹툰 생성 (역SSH 터널)"| GPU
     W -->|"원본 카드 · 마스크 없는 카드 누끼"| GPU
     IMG -->|"원본 사진 N 카드 누끼 /card-cutout"| GPU
