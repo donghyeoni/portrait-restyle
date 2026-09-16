@@ -127,7 +127,7 @@ serving/
   common/        아이템·출력·전처리·S3 공용
 eval/            정체성(ArcFace)·화풍·심미 점수
 scripts/         모델 다운로드·마스크 사전계산·원격 실행·배포
-docs/            API_SPEC · ARCHITECTURE · BACKEND_CONTRACT · DECISIONS · PERF_LOG · MODELS
+docs/            PATCH_NOTES · API_SPEC · ARCHITECTURE · BACKEND_CONTRACT · DECISIONS · PERF_LOG · MODELS
 ```
 
 ---
