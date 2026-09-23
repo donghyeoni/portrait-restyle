@@ -148,7 +148,8 @@ def run_inswapper(item: Item, coll, preset: dict, src_path: pathlib.Path, info: 
         raise ItemError("MODEL_ERROR", f"참고 이미지 없음: {ref_dir}/{preset['key']}", retryable=False)
     mode = coll.get("glasses", "off") if info.get("glasses") else "off"
     gl_mask = glasses_mask(img, source_face) if mode != "off" else None
-    final, note = swap_into(ref, img, src_path, source_face, fa, gl_mask, glasses_mode=mode, node=NODE, gender=item.gender)
+    final, note = swap_into(ref, img, src_path, source_face, fa, gl_mask, glasses_mode=mode, node=NODE, gender=item.gender,
+                            **coll.swap_opts(preset))
     if final is None:
         raise ItemError("MODEL_ERROR", f"참고 이미지 얼굴 검출 실패: {note}", retryable=False)
     return final, ref                              # ref: 사전 누끼 마스크 조회용 (steps/refmask.py)
@@ -212,7 +213,7 @@ def generate(item: Item, body_flags: dict | None = None) -> dict:
     if ref is not None:                                # 고정 참고 이미지: 사전 마스크, 없으면 BiRefNet
         from steps import refmask
         from steps.crop import OVERRIDE
-        cut = refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cutout)
+        cut = refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cutout, coll.swap_opts(preset)["crop"])
     made = O.build(final, item.wanted, cut if need_cut else None)
     relay = bool(body_flags.get("returnBytes")) or not all(t.upload_url for t in item.targets)
     descs = []

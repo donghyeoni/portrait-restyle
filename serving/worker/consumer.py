@@ -118,7 +118,8 @@ def _gpu_cutout_fn(item: Item, coll, preset):
         ref_dir = coll.reference_dir() / item.gender
         ref = next((p for p in ref_dir.iterdir() if p.stem == preset["key"]), None)
         if ref is not None:
-            return refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_downscaled)
+            return refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_downscaled,
+                                     coll.swap_opts(preset)["crop"])
     return cpu_path.cutout_downscaled
 
 
@@ -199,7 +200,8 @@ def execute_once(item: Item, coll, preset, s3: s3io.S3, hb: Heartbeat, img, src_
     # 누끼: 참고 이미지의 사전 마스크(0.01초). 없거나 불일치면 누끼 서비스(BiRefNet CPU 14초)로 안전망
     from steps import refmask
     from steps.crop import OVERRIDE
-    cut = refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_via_service)
+    cut = refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_via_service,
+                            coll.swap_opts(preset)["crop"])
     made = O.build(final, item.wanted, cut if need_cut else None)
     return _upload_all(s3, item, made), engine_seed
 

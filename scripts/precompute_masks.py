@@ -40,7 +40,7 @@ def main() -> int:
 
     import cv2
     import manifests
-    from engines.inswapper import crop_upper
+    from engines.inswapper import crop_upper, fit_card
     from steps import refmask
     from steps.crop import OVERRIDE
     from steps.cutout import cutout
@@ -60,12 +60,14 @@ def main() -> int:
                 continue
             for ref in sorted(p for p in gdir.iterdir() if p.suffix.lower() in IMG_EXT and ".mask" not in p.name):
                 above = OVERRIDE.get(ref.stem, {}).get("above", 1.0)
-                if not a.force and refmask.load(ref, (1152, 896), above) is not None:
+                pre = next((q for q in coll.presets(True).values() if q["key"] == ref.stem), {})
+                crop = coll.swap_opts(pre)["crop"]      # 워커가 합성할 때와 같은 창
+                if not a.force and refmask.load(ref, (1152, 896), above, crop) is not None:
                     skipped += 1
                     continue
                 t0 = time.time()
                 try:
-                    mask, meta = refmask.build(ref, fa, above, cutout)
+                    mask, meta = refmask.build(ref, fa, above, cutout, crop)
                 except Exception as e:                # noqa: BLE001
                     failed += 1
                     print(f"실패 {coll.id}/{gdir.name}/{ref.name}: {e}", flush=True)
@@ -77,7 +79,7 @@ def main() -> int:
                 if prev_dir:
                     tgt = cv2.imread(str(ref))
                     face = biggest(fa.get(tgt))
-                    final, _, _ = crop_upper(tgt, face.bbox, above)
+                    final, _, _ = fit_card(tgt) if crop == "fit" else crop_upper(tgt, face.bbox, above)
                     cv2.imwrite(str(prev_dir / f"{coll.id}_{gdir.name}_{ref.stem}.png"), checkerboard_preview(final, mask))
     print(f"완료 {made} / 건너뜀 {skipped} / 실패 {failed}")
     return 1 if failed else 0
