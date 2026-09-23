@@ -95,21 +95,28 @@ def progress(item_id: str, token: str, pct: int, stage: str, trace_id: str | Non
         log.warning("progress 실패 %s: %s", item_id, e)
 
 
+def _release_fields(release_id: str | None, theme_code: str | None) -> dict:
+    """테마 공개에 묶인 아이템은 메시지의 release 를 그대로 되돌려준다. 묶이지 않았으면 필드를 보내지 않는다."""
+    return {"releaseId": release_id, "themeCode": theme_code} if release_id else {}
+
+
 def complete(item_id: str, token: str, model_version: str, seed: int, outputs: list[dict], trace_id: str | None,
-             callback_event_id: str | None = None) -> str:
+             callback_event_id: str | None = None, release_id: str | None = None, theme_code: str | None = None) -> str:
     """outputs 는 DTO 필드만 (serving.common.outputs.to_callback). 돌려주는 값: callbackEventId (재전송 시 재사용)."""
     cid = callback_event_id or str(uuid.uuid4())
     _post(f"{BASE_PATH}/{item_id}/complete",
-          {"callbackEventId": cid, "workerToken": token, "modelVersion": model_version, "seed": int(seed), "outputs": outputs},
+          {"callbackEventId": cid, "workerToken": token, "modelVersion": model_version, "seed": int(seed), "outputs": outputs,
+           **_release_fields(release_id, theme_code)},
           trace_id=trace_id, idem=cid)
     return cid
 
 
 def fail(item_id: str, token: str, code: str, retryable: bool, attempt: int, trace_id: str | None,
-         callback_event_id: str | None = None) -> str:
+         callback_event_id: str | None = None, release_id: str | None = None, theme_code: str | None = None) -> str:
     """최종 실패 확정. attempt 는 마지막 실행 번호 (0·1·2)."""
     cid = callback_event_id or str(uuid.uuid4())
     _post(f"{BASE_PATH}/{item_id}/fail",
-          {"callbackEventId": cid, "workerToken": token, "errorCode": code, "retryable": bool(retryable), "attempt": int(attempt)},
+          {"callbackEventId": cid, "workerToken": token, "errorCode": code, "retryable": bool(retryable), "attempt": int(attempt),
+           **_release_fields(release_id, theme_code)},
           trace_id=trace_id, idem=cid)
     return cid

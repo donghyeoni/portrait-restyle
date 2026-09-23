@@ -328,11 +328,13 @@ def handle(ch, method, props, body: bytes, s3: s3io.S3):
     try:
         if "ok" in result:
             outs, seed = result["ok"]
-            backend.complete(item.item_id, token, MODEL_VERSION, seed, O.to_callback(outs), item.trace_id)
+            backend.complete(item.item_id, token, MODEL_VERSION, seed, O.to_callback(outs), item.trace_id,
+                             release_id=item.release_id, theme_code=item.theme_code)
             log.info("%s %s 완료 %.1fs", item.item_id, item.style_preset, time.time() - t0)
         else:
             e: ItemError = result["err"]
-            backend.fail(item.item_id, token, e.code, e.retryable, e.attempt, item.trace_id)
+            backend.fail(item.item_id, token, e.code, e.retryable, e.attempt, item.trace_id,
+                         release_id=item.release_id, theme_code=item.theme_code)
             log.warning("%s %s 최종 실패 %s (attempt %d): %s", item.item_id, item.style_preset, e.code, e.attempt, e.message)
     except backend.BackendError as e:
         if e.status and 400 <= e.status < 500:
