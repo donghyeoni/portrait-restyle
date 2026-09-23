@@ -6,7 +6,7 @@
 # 참고 이미지는 data/backlog/reference/chusoek/ 에 있다.
 id: chusoek
 display: 추석
-tier: N
+tier: N              # 기본 등급. 한복·윷은 프리셋에서 R 로 올린다 (rarity 가 tier 를 덮는다)
 version: chusoek-v1
 engine: inswapper
 enabled: true
@@ -34,9 +34,9 @@ presets:
   # face_mask: 얼굴 구멍이 뚫린 탈. 교체 결과를 얼굴 안쪽에만 써서 구멍 테두리 선을 살린다.
   # 한복은 탈이 아니라 끈다 (켜면 얼굴 윤곽이 모델 것으로 돌아가 유사도만 떨어진다)
   FISH: {key: fish, face_mask: true}
-  HANBOK: hanbok
+  HANBOK: {key: hanbok, rarity: R}
   OCTOPUS: {key: octopus, face_mask: true}
   SHARK: {key: shark, face_mask: true}
   SQUID: {key: squid, face_mask: true}
   TURTLE: {key: turtle, face_mask: true}
-  YUT: {key: yut, face_mask: true}
+  YUT: {key: yut, face_mask: true, rarity: R}

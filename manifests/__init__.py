@@ -114,7 +114,7 @@ def catalog() -> list[dict]:
             rows.append({"code": code, "collection": c.id, "display": c.get("display", c.id),
                          "preset": p["key"], "engine": c.engine, "version": c.version,
                          "width": size.get("width"), "height": size.get("height"),
-                         "tier": c.get("tier")})
+                         "tier": p.get("rarity") or c.get("tier")})   # catalog_payload 와 같은 규칙
     return rows
 
 
