@@ -129,7 +129,9 @@ def execute_once(item: Item, coll, preset, s3: s3io.S3, hb: Heartbeat, img, src_
     info = preprocess_info(item, img, s3)
     hb.set("PREPROCESSING", 20)
     engine_seed = int(coll.get("pulid", coll.get("kontext", {})).get("seed", 1000)) if coll.engine not in ("inswapper", "original") else 0
-    to_gpu = coll.engine in ("pulid", "kontext") or (bool(info.get("glasses")) and C.GLASSES_TO_GPU)
+    # 안경 보정을 끈 컬렉션(glasses: off)은 착용자도 CPU 에서 끝낸다. GPU 로 보낼 이유가 Kontext 안경뿐이기 때문이다.
+    wants_glasses = bool(info.get("glasses")) and coll.get("glasses", "kontext") != "off"
+    to_gpu = coll.engine in ("pulid", "kontext") or (wants_glasses and C.GLASSES_TO_GPU)
 
     hb.set("GENERATING", 30, push=True)
     if to_gpu:

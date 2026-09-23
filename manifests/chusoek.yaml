@@ -14,8 +14,9 @@ enabled: true
 # data/reference/chusoek/{male,female}/<preset>.png — 남녀 파일 이름(stem)이 같아야
 # 프리셋 키 하나로 양쪽을 찾는다 (serving/worker/cpu_path.py 의 p.stem == preset["key"]).
 reference: data/reference/chusoek
-# 안경 쓴 사람만 Kontext 로 원본 안경을 눈 영역에 그려 넣는다 (직업·12지신과 동일)
-glasses: kontext
+# 안경 보정은 끈다. 착용자도 EC2 CPU 에서 끝나 GPU 서비스를 거치지 않는다 (worker consumer 의 to_gpu).
+# 검수한 196장이 모두 안경 보정 없이 만든 것이다. 켜려면 GPU 서비스에 추석 코드·참고 이미지가 먼저 있어야 한다.
+glasses: "off"
 # 모델들이 머리를 넘겨 이마가 드러나 있다. keep 이면 멤버 앞머리가 반쯤 지워진 얼룩으로 남는다
 bangs: drop
 # 전신 실루엣(물고기 꼬리·윷가락)이 콘셉트라 상반신 확대 크롭을 하지 않고 전체를 카드 규격에 맞춘다
