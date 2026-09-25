@@ -118,7 +118,8 @@ def _gpu_cutout_fn(item: Item, coll, preset):
         ref_dir = coll.reference_dir() / item.gender
         ref = next((p for p in ref_dir.iterdir() if p.stem == preset["key"]), None)
         if ref is not None:
-            return refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_downscaled)
+            return refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_downscaled,
+                                     coll.swap_opts(preset)["crop"])
     return cpu_path.cutout_downscaled
 
 
@@ -128,7 +129,9 @@ def execute_once(item: Item, coll, preset, s3: s3io.S3, hb: Heartbeat, img, src_
     info = preprocess_info(item, img, s3)
     hb.set("PREPROCESSING", 20)
     engine_seed = int(coll.get("pulid", coll.get("kontext", {})).get("seed", 1000)) if coll.engine not in ("inswapper", "original") else 0
-    to_gpu = coll.engine in ("pulid", "kontext") or (bool(info.get("glasses")) and C.GLASSES_TO_GPU)
+    # 안경 보정을 끈 컬렉션(glasses: off)은 착용자도 CPU 에서 끝낸다. GPU 로 보낼 이유가 Kontext 안경뿐이기 때문이다.
+    wants_glasses = bool(info.get("glasses")) and coll.get("glasses", "kontext") != "off"
+    to_gpu = coll.engine in ("pulid", "kontext") or (wants_glasses and C.GLASSES_TO_GPU)
 
     hb.set("GENERATING", 30, push=True)
     if to_gpu:
@@ -199,7 +202,8 @@ def execute_once(item: Item, coll, preset, s3: s3io.S3, hb: Heartbeat, img, src_
     # 누끼: 참고 이미지의 사전 마스크(0.01초). 없거나 불일치면 누끼 서비스(BiRefNet CPU 14초)로 안전망
     from steps import refmask
     from steps.crop import OVERRIDE
-    cut = refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_via_service)
+    cut = refmask.cutout_fn(ref, OVERRIDE.get(ref.stem, {}).get("above", 1.0), cpu_path.cutout_via_service,
+                            coll.swap_opts(preset)["crop"])
     made = O.build(final, item.wanted, cut if need_cut else None)
     return _upload_all(s3, item, made), engine_seed
 
@@ -324,11 +328,13 @@ def handle(ch, method, props, body: bytes, s3: s3io.S3):
     try:
         if "ok" in result:
             outs, seed = result["ok"]
-            backend.complete(item.item_id, token, MODEL_VERSION, seed, O.to_callback(outs), item.trace_id)
+            backend.complete(item.item_id, token, MODEL_VERSION, seed, O.to_callback(outs), item.trace_id,
+                             release_id=item.release_id, theme_code=item.theme_code)
             log.info("%s %s 완료 %.1fs", item.item_id, item.style_preset, time.time() - t0)
         else:
             e: ItemError = result["err"]
-            backend.fail(item.item_id, token, e.code, e.retryable, e.attempt, item.trace_id)
+            backend.fail(item.item_id, token, e.code, e.retryable, e.attempt, item.trace_id,
+                         release_id=item.release_id, theme_code=item.theme_code)
             log.warning("%s %s 최종 실패 %s (attempt %d): %s", item.item_id, item.style_preset, e.code, e.attempt, e.message)
     except backend.BackendError as e:
         if e.status and 400 <= e.status < 500:

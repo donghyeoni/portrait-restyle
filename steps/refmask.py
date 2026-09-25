@@ -6,8 +6,9 @@ inswapper 는 얼굴 상자 안쪽 픽셀만 바꾸고, 상반신 크롭 박스�
 
 파일 (참고 이미지 옆):
   <ref 이름>.mask.png   8비트 단일 채널, 최종 크롭 크기(896x1152). 0 배경, 255 인물
-  <ref 이름>.mask.json  {"ref_sha256", "above", "box", "size", "model", "made"}
-참고 이미지나 크롭 규칙(above)이 바뀌면 sha256/above 가 달라져 load() 가 None 을 돌려주고, 호출 쪽은 누끼 모델로 떨어진다.
+  <ref 이름>.mask.json  {"ref_sha256", "above", "crop", "box", "size", "model", "made"}
+참고 이미지나 크롭 규칙(above, crop)이 바뀌면 값이 달라져 load() 가 None 을 돌려주고, 호출 쪽은 누끼 모델로 떨어진다.
+crop 은 컬렉션의 upper(상반신 크롭) | fit(전체). "crop" 이 없는 예전 파일은 upper 로 본다.
 """
 from __future__ import annotations
 
@@ -38,7 +39,7 @@ def ref_sha256(ref_path: pathlib.Path) -> str:
     return _SHA[key]
 
 
-def load(ref_path: pathlib.Path, shape: tuple[int, ...], above: float) -> np.ndarray | None:
+def load(ref_path: pathlib.Path, shape: tuple[int, ...], above: float, crop: str = "upper") -> np.ndarray | None:
     """검증된 마스크(H,W uint8) 또는 None. 없거나 원본·크롭 규칙·크기가 다르면 None."""
     png, meta_p = mask_paths(ref_path)
     if not (png.exists() and meta_p.exists()):
@@ -48,6 +49,8 @@ def load(ref_path: pathlib.Path, shape: tuple[int, ...], above: float) -> np.nda
     except Exception:                                  # noqa: BLE001
         return None
     if meta.get("ref_sha256") != ref_sha256(ref_path) or abs(float(meta.get("above", -1)) - above) > 1e-6:
+        return None
+    if meta.get("crop", "upper") != crop:            # 창이 다르면 크기가 같아도 윤곽이 어긋난다
         return None
     m = cv2.imread(str(png), cv2.IMREAD_UNCHANGED)
     if m is None or m.ndim != 2 or m.shape[:2] != tuple(shape[:2]):
@@ -61,10 +64,10 @@ def apply(img_bgr: np.ndarray, mask: np.ndarray) -> np.ndarray:
 
 
 def cutout_fn(ref_path: pathlib.Path, above: float,
-              fallback: Callable[[np.ndarray], np.ndarray]) -> Callable[[np.ndarray], np.ndarray]:
+              fallback: Callable[[np.ndarray], np.ndarray], crop: str = "upper") -> Callable[[np.ndarray], np.ndarray]:
     """마스크가 있으면 얹고, 없으면 fallback(누끼 모델) 을 부른다. 안전망이라 마스크 미비가 실패로 이어지지 않는다."""
     def fn(img_bgr: np.ndarray) -> np.ndarray:
-        m = load(ref_path, img_bgr.shape, above)
+        m = load(ref_path, img_bgr.shape, above, crop)
         if m is not None:
             return apply(img_bgr, m)
         if str(ref_path) not in _WARNED:
@@ -74,9 +77,10 @@ def cutout_fn(ref_path: pathlib.Path, above: float,
     return fn
 
 
-def build(ref_path: pathlib.Path, fa, above: float, cutout: Callable[[np.ndarray], np.ndarray]) -> tuple[np.ndarray, dict]:
-    """참고 이미지 한 장: 얼굴 검출 -> swap_into 와 같은 상반신 크롭 -> 누끼 -> 알파를 저장용으로 돌려준다."""
-    from engines.inswapper import crop_upper
+def build(ref_path: pathlib.Path, fa, above: float, cutout: Callable[[np.ndarray], np.ndarray],
+          crop: str = "upper") -> tuple[np.ndarray, dict]:
+    """참고 이미지 한 장: 얼굴 검출 -> swap_into 와 같은 크롭 -> 누끼 -> 알파를 저장용으로 돌려준다."""
+    from engines.inswapper import crop_upper, fit_card
     from steps.faces import biggest
     tgt = cv2.imread(str(ref_path))
     if tgt is None:
@@ -85,10 +89,10 @@ def build(ref_path: pathlib.Path, fa, above: float, cutout: Callable[[np.ndarray
     if not faces:
         raise ValueError(f"참고 이미지에서 얼굴을 찾지 못함: {ref_path}")
     face = biggest(faces)
-    final, box, _ = crop_upper(tgt, face.bbox, above)
+    final, box, _ = fit_card(tgt) if crop == "fit" else crop_upper(tgt, face.bbox, above)
     bgra = cutout(final)
     mask = bgra[..., 3]
-    meta = {"ref_sha256": ref_sha256(ref_path), "above": above, "box": [int(v) for v in box],
+    meta = {"ref_sha256": ref_sha256(ref_path), "above": above, "crop": crop, "box": [int(v) for v in box],
             "size": [int(mask.shape[1]), int(mask.shape[0])], "model": "birefnet-portrait",
             "made": _dt.datetime.now().isoformat(timespec="seconds")}
     return mask, meta

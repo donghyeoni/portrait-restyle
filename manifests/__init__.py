@@ -63,6 +63,14 @@ class Collection(dict):
         r = self.get("reference")
         return ROOT / r if r else None
 
+    def swap_opts(self, preset: dict) -> dict:
+        """inswapper 합성 옵션 (engines.inswapper.swap_into 키워드). 프리셋 값이 컬렉션 값을 덮는다.
+
+        없으면 직업·12지신 기본값이다: 앞머리 keep, 상반신 크롭, 복원·얼굴 마스크 없음.
+        """
+        base = {"bangs": "keep", "crop": "upper", "restore": 0.0, "face_mask": False}
+        return {k: preset.get(k, self.get(k, v)) for k, v in base.items()}
+
 
 UNUSED = HERE / "backlog"      # 추가 예정·미사용 컬렉션. 러너·코드 표에 나오지 않는다 (--include-disabled 로만). 로컬 전용
 
@@ -106,7 +114,7 @@ def catalog() -> list[dict]:
             rows.append({"code": code, "collection": c.id, "display": c.get("display", c.id),
                          "preset": p["key"], "engine": c.engine, "version": c.version,
                          "width": size.get("width"), "height": size.get("height"),
-                         "tier": c.get("tier")})
+                         "tier": p.get("rarity") or c.get("tier")})   # catalog_payload 와 같은 규칙
     return rows
 
 

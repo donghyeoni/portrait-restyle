@@ -105,7 +105,8 @@ def swap(item: Item, coll, preset: dict, src_img: np.ndarray, src_path: pathlib.
     fa, source_face = prepare_source(src_img, C.INSWAPPER_CTX)
     if source_face is None:
         raise ItemError("NO_FACE", "원본에서 얼굴을 찾지 못함 (buffalo_l)")
-    final, note = swap_into(ref, src_img, src_path, source_face, fa, None, glasses_mode="off", gender=item.gender)
+    final, note = swap_into(ref, src_img, src_path, source_face, fa, None, glasses_mode="off", gender=item.gender,
+                            **coll.swap_opts(preset))
     if final is None:
         raise ItemError("MODEL_ERROR", f"참고 이미지 얼굴 검출 실패: {note}", retryable=False)
     return final, ref

@@ -1,0 +1,43 @@
+# 추석 코스튬 — 참고 이미지에 입력 얼굴을 교체해 넣는다 (엔진 inswapper).
+# 12지신·직업과 완전히 같은 경로다. 참고 이미지가 콘셉트를 담고 얼굴은 작게 들어간다
+# (얼굴 높이가 화면의 7~22%, 평균 12% — 12지신 11%와 같은 범위).
+#
+# moon(달 안의 실사 얼굴 + 만화 캐릭터)·puff(복어)는 화풍이 맞지 않아 뺐다 (2026-09-23).
+# 참고 이미지는 data/backlog/reference/chusoek/ 에 있다.
+id: chusoek
+display: 추석
+tier: N              # 기본 등급. 한복·윷은 프리셋에서 R 로 올린다 (rarity 가 tier 를 덮는다)
+version: chusoek-v1
+engine: inswapper
+enabled: true
+
+# data/reference/chusoek/{male,female}/<preset>.png — 남녀 파일 이름(stem)이 같아야
+# 프리셋 키 하나로 양쪽을 찾는다 (serving/worker/cpu_path.py 의 p.stem == preset["key"]).
+reference: data/reference/chusoek
+# 안경 보정은 끈다. 착용자도 EC2 CPU 에서 끝나 GPU 서비스를 거치지 않는다 (worker consumer 의 to_gpu).
+# 검수한 196장이 모두 안경 보정 없이 만든 것이다. 켜려면 GPU 서비스에 추석 코드·참고 이미지가 먼저 있어야 한다.
+glasses: "off"
+# 모델들이 머리를 넘겨 이마가 드러나 있다. keep 이면 멤버 앞머리가 반쯤 지워진 얼룩으로 남는다
+bangs: drop
+# 전신 실루엣(물고기 꼬리·윷가락)이 콘셉트라 상반신 확대 크롭을 하지 않고 전체를 카드 규격에 맞춘다
+crop: fit
+# inswapper 출력(128px)이 참고 사진보다 흐려 얼굴만 뭉개져 보인다. GFPGAN 을 40% 섞는다
+# (문어·복어 8명: 원본 유사도 0.7012 -> 0.6669, 60%/얼굴 마스크 강하게는 0.6484)
+restore: 0.4
+
+output:
+  width: 896
+  height: 1152
+  dir: data/output/chusoek     # {man,woman}/NNN/<preset>.png
+
+# stylePreset 코드 -> 참고 이미지 파일명 (확장자 제외)
+presets:
+  # face_mask: 얼굴 구멍이 뚫린 탈. 교체 결과를 얼굴 안쪽에만 써서 구멍 테두리 선을 살린다.
+  # 한복은 탈이 아니라 끈다 (켜면 얼굴 윤곽이 모델 것으로 돌아가 유사도만 떨어진다)
+  FISH: {key: fish, face_mask: true}
+  HANBOK: {key: hanbok, rarity: R}
+  OCTOPUS: {key: octopus, face_mask: true}
+  SHARK: {key: shark, face_mask: true}
+  SQUID: {key: squid, face_mask: true}
+  TURTLE: {key: turtle, face_mask: true}
+  YUT: {key: yut, face_mask: true, rarity: R}

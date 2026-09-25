@@ -70,6 +70,9 @@ class Item:
     attempt: int = 0                  # 봉투 attempt (백엔드 측 실행 번호 참고값)
     defer_count: int = 0
     preprocess_hint: dict | None = None
+    # 관리자 테마 공개에 묶인 아이템. 백엔드는 완료·실패 콜백이 같은 값을 되돌려줘야 받아들인다 (아니면 409 AI_RESULT_CONFLICT)
+    release_id: str | None = None
+    theme_code: str | None = None
 
     def target(self, variant: str) -> Target | None:
         return next((t for t in self.targets if t.variant == variant), None)
@@ -106,6 +109,7 @@ def from_payload(payload: dict, *, message_id=None, trace_id=None, attempt=0, de
     """규약 payload (RabbitMQ) 또는 GPU 서비스 요청 본문 (downloadUrl/uploadUrl 포함)."""
     try:
         src, subj, gen = payload["source"], payload["subject"], payload["generation"]
+        release = payload.get("release") or {}
         return Item(
             item_id=str(payload["itemId"]), batch_id=str(payload.get("batchId", "")),
             style_preset=str(gen["stylePreset"]).upper(), gender=_gender(subj.get("gender")),
@@ -115,7 +119,9 @@ def from_payload(payload: dict, *, message_id=None, trace_id=None, attempt=0, de
             targets=_targets(payload.get("outputTargets")),
             message_id=message_id, trace_id=trace_id, user_id=subj.get("subjectUserId"),
             generation_type=payload.get("generationType"), attempt=int(attempt or 0), defer_count=int(defer_count or 0),
-            preprocess_hint=payload.get("preprocess"))
+            preprocess_hint=payload.get("preprocess"),
+            release_id=(str(release["releaseId"]) if release.get("releaseId") else None),
+            theme_code=release.get("themeCode") or None)
     except KeyError as e:
         raise ItemError("INVALID_MESSAGE", f"필수 필드 없음: {e}") from e
     except (TypeError, ValueError) as e:
