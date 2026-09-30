@@ -1,0 +1,9 @@
+{
+  "ec2": {
+    "host": "<EC2 호스트 이름>",
+    "user": "<SSH 사용자>",
+    "key": "<SSH 개인키 경로, 예: C:/Users/me/Desktop/key.pem>"
+  },
+  "postgresContainer": "<EC2 의 Postgres 컨테이너 이름>",
+  "s3Container": "<EC2 에서 S3 를 쓰는 워커 컨테이너 이름>"
+}

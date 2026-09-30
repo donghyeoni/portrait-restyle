@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>카드 생성 모니터</title>
+  <link rel="stylesheet" href="/app.css" />
+  <link rel="stylesheet" href="/cardface/cardface.css" onerror="this.remove()" />
+</head>
+<body>
+  <div class="shell">
+    <header class="shell__header">
+      <div>
+        <h1>카드 생성 모니터 <span class="badge">로컬</span></h1>
+        <p class="muted">운영 DB 를 읽기 전용으로 봅니다. 이 PC 밖으로 나가는 것은 없습니다.</p>
+      </div>
+    </header>
+    <div id="error" class="notice notice--error" hidden></div>
+
+    <section class="panel" id="summary">
+      <div class="panel__head">
+        <div>
+          <h2>요약</h2>
+          <p class="muted">생성 요청 시각 기준. 생성 시간은 첫 실행 시작부터 완료까지(재시도 포함).</p>
+        </div>
+        <div class="toolbar">
+          <select id="summary-hours" aria-label="요약 기간"></select>
+          <button type="button" class="btn btn--ghost btn--small" id="summary-reload">새로고침</button>
+        </div>
+      </div>
+      <div class="stats" id="summary-stats"></div>
+      <div class="chips" id="summary-errors"></div>
+      <div class="table-wrap"><table class="table table--dense" id="summary-table"></table></div>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>생성 항목</h2>
+        <form class="filters" id="filters">
+          <label>기간 <select name="hours"></select></label>
+          <label>상태 <select name="status"></select></label>
+          <label>등급 <select name="rarity"></select></label>
+          <label>종류 <select name="generationType"></select></label>
+          <label>프리셋 <input name="stylePreset" placeholder="예: CYBERPUNK" /></label>
+          <label>실패 코드 <input name="errorCode" placeholder="예: NO_FACE" /></label>
+          <div class="member">
+            <span>회원</span>
+            <div id="member-picked" hidden></div>
+            <div class="search" id="member-search">
+              <input id="member-q" placeholder="닉네임 또는 번호" />
+              <button type="button" class="btn btn--ghost btn--small" id="member-find">찾기</button>
+            </div>
+            <div class="chips" id="member-results"></div>
+          </div>
+          <div class="filters__actions">
+            <button type="submit" class="btn btn--primary btn--small">적용</button>
+            <button type="button" class="btn btn--ghost btn--small" id="filters-reset">초기화</button>
+          </div>
+        </form>
+        <div class="table-wrap"><table class="table table--dense table--clickable" id="items"></table></div>
+        <p class="muted" id="items-empty" hidden></p>
+        <button type="button" class="btn btn--ghost" id="items-more" hidden>더 보기</button>
+      </section>
+
+      <section class="panel detail" id="detail">
+        <p class="muted">왼쪽 목록에서 항목을 고르면 단계별 결과와 실행 기록을 보여 줍니다.</p>
+      </section>
+    </div>
+  </div>
+  <!-- 완성 카드 미리보기(선택). 없으면 카드 칸만 비어 있다. README 참고 -->
+  <script type="module" src="/cardface/cardface.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
