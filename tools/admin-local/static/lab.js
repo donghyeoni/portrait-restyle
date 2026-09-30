@@ -122,7 +122,7 @@ async function poll(runId) {
 function figure(label, url, free = false) {
   return h("figure", {}, h("figcaption", {}, label),
     h("div", { class: `frame${free ? " frame--free" : ""}` },
-      h("a", { href: url, target: "_blank", rel: "noopener" }, h("img", { src: url, alt: label, loading: "lazy" }))));
+      h("a", { href: url, target: "_blank", rel: "noopener" }, h("img", { src: url, alt: label }))));
 }
 
 function cardFigure(run, result) {

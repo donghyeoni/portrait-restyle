@@ -43,7 +43,7 @@ code { font-size: 12px; color: var(--muted); }
   gap: 20px;
 }
 
-.shell__header { display: flex; justify-content: space-between; align-items: center; }
+.shell__header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
 .badge { margin-left: 6px; padding: 2px 8px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: 12px; vertical-align: middle; }
 
 .panel {
@@ -170,7 +170,7 @@ input, select {
 
 /* ── 화면 탭 ── */
 .tabs { display: flex; gap: 4px; }
-.tabs__tab { padding: 7px 14px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.tabs__tab { white-space: nowrap; padding: 7px 14px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
 .tabs__tab[aria-current="page"] { border-color: var(--line-strong); background: var(--surface-2); color: var(--ink); font-weight: 600; }
 .view { display: flex; flex-direction: column; gap: 20px; }
 
