@@ -168,6 +168,54 @@ input, select {
 .info dt { color: var(--muted); font-size: 12px; }
 .info dd { margin: 2px 0 0; word-break: break-all; }
 
+/* ── 화면 탭 ── */
+.tabs { display: flex; gap: 4px; }
+.tabs__tab { padding: 7px 14px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.tabs__tab[aria-current="page"] { border-color: var(--line-strong); background: var(--surface-2); color: var(--ink); font-weight: 600; }
+.view { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── 실험실 ── */
+.lab-grid { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.lab-form { display: flex; flex-direction: column; gap: 10px; }
+.lab-form label, .lab-fields label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+.lab-form textarea { min-height: 64px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 13px; resize: vertical; }
+.lab-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lab-fields .wide { grid-column: 1 / -1; }
+.lab-fields .check { flex-direction: row; align-items: center; gap: 8px; }
+.drop { display: grid; place-items: center; min-height: 140px; padding: 8px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--surface-2); cursor: pointer; text-align: center; }
+.drop.is-over { border-color: var(--accent); }
+.drop img { max-width: 100%; max-height: 220px; border-radius: 8px; }
+.lab-view { min-height: 320px; }
+.progress { display: flex; flex-direction: column; gap: 6px; }
+.progress__bar { height: 6px; overflow: hidden; border-radius: 3px; background: var(--surface-2); }
+.progress__bar span { display: block; height: 100%; width: 40%; background: var(--accent); animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+.strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.strip figure { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.strip figcaption { color: var(--muted); font-size: 12px; }
+.frame--free { aspect-ratio: auto; min-height: 120px; }
+.frame--free img { height: auto; }
+.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 14px; margin: 0; font-size: 13px; }
+.kv dt { color: var(--muted); font-size: 12px; }
+.kv dd { margin: 2px 0 0; word-break: break-all; }
+.prompt { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+.timings { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.timings td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.timings td:last-child { text-align: right; color: var(--muted); }
+.history { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.run-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); cursor: pointer; font-size: 12px; }
+.run-card.is-open { border-color: var(--accent); }
+.run-card img { width: 100%; aspect-ratio: 896 / 1152; object-fit: cover; border-radius: 8px; background: var(--surface); }
+.run-card .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.compare { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 1fr); gap: 14px; overflow-x: auto; padding-top: 8px; border-top: 1px solid var(--line); }
+.compare__col { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; }
+.compare__col img { width: 100%; border-radius: 8px; background: var(--surface-2); }
+.diff { color: var(--accent); font-weight: 600; }
+
+@media (max-width: 1100px) {
+  .lab-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 1100px) {
   .grid { grid-template-columns: minmax(0, 1fr); }
   .detail { position: static; max-height: none; }

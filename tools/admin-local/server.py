@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import getpass
 import json
 import mimetypes
@@ -24,7 +25,9 @@ from urllib.parse import parse_qs, urlparse
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import lab  # noqa: E402
 import queries  # noqa: E402
+from jupyter import Jupyter, JupyterError  # noqa: E402
 from remote import Remote, RemoteError  # noqa: E402
 
 STATIC = HERE / "static"
@@ -79,7 +82,30 @@ CONTENT_TYPES = {
 }
 
 
-def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | None):
+MAX_UPLOAD = 15 * 1024 * 1024
+
+
+def source_photo(remote: Remote, item_id: str, purpose: str) -> tuple[dict, bytes]:
+    """모니터의 생성 항목에서 회원 원본을 받아 온다. 받을 때마다 열람 기록을 남긴다."""
+    detail = remote.query_json(queries.detail(item_id))
+    if detail is None:
+        raise queries.Invalid("생성 항목을 찾을 수 없습니다")
+    source = next((m for m in detail.get("media") or [] if m["role"] == "SOURCE"), None)
+    if source is None:
+        raise queries.Invalid("이 항목에는 원본 사진이 없습니다")
+    got = remote.fetch_objects([{"bucket": source["bucket"], "key": source["key"]}]).get(source["key"])
+    if got is None:
+        raise RemoteError("원본 사진을 받지 못했습니다")
+    item = detail.get("item") or {}
+    log_access({
+        "at": datetime.now(timezone.utc).isoformat(), "viewer": getpass.getuser(), "itemId": item.get("itemId"),
+        "subjectUserId": (item.get("subject") or {}).get("userId"), "mediaFileId": source["mediaFileId"],
+        "variant": source["variant"], "purpose": purpose,
+    })
+    return detail, got[1]
+
+
+def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | None, jupyter: Jupyter):
     class Handler(BaseHTTPRequestHandler):
         server_version = "motion-admin-local"
 
@@ -112,10 +138,12 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
         def _api(self, fn):
             try:
                 self._json(200, {"data": fn()})
-            except queries.Invalid as exc:
+            except (queries.Invalid, ValueError) as exc:
                 self._json(400, {"error": str(exc)})
             except RemoteError as exc:
                 self._json(502, {"error": f"EC2 조회 실패: {exc}"})
+            except JupyterError as exc:
+                self._json(502, {"error": f"GPU 서버 실패: {exc}"})
             except Exception as exc:  # 도구가 죽지 않게 한다
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
 
@@ -133,6 +161,20 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
                 return self._api(lambda: self._detail(path.rsplit("/", 1)[1]))
             if path == "/api/users":
                 return self._api(lambda: remote.query_json(queries.users(params.get("q", ""))))
+            if path == "/api/lab/status":
+                return self._api(lambda: {"ready": jupyter.ready, "node": jupyter.gpu.get("node")})
+            if path == "/api/lab/presets":
+                return self._api(lab.presets)
+            if path == "/api/lab/runs":
+                return self._api(lab.history)
+            if path.startswith("/api/lab/runs/"):
+                return self._api(lambda: self._lab_run(path.rsplit("/", 1)[1]))
+            if path.startswith("/lab-files/"):
+                parts = path.split("/")
+                target = lab.file_path(parts[2], parts[3]) if len(parts) == 4 else None
+                if target is None:
+                    return self._json(404, {"error": "없는 파일"})
+                return self._send(200, target.read_bytes(), CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
             if path.startswith("/media/"):
                 hit = cache.get(path.rsplit("/", 1)[1])
                 if hit is None:
@@ -146,7 +188,74 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
             path = urlparse(self.path).path
             if path.startswith("/api/items/") and path.endswith("/media"):
                 return self._api(lambda: self._media(path.split("/")[3]))
+            if path == "/api/lab/runs":
+                return self._api(self._lab_start)
             self._json(404, {"error": "없는 경로"})
+
+        def _body(self) -> dict:
+            size = int(self.headers.get("Content-Length") or 0)
+            if size > MAX_UPLOAD * 2:
+                raise ValueError("요청이 너무 큽니다")
+            return json.loads(self.rfile.read(size) or b"{}")
+
+        def _lab_start(self):
+            if not jupyter.ready:
+                raise ValueError("local.json 에 jupyter(url, token)·gpu(codeRoot, node) 설정이 필요합니다. README 참고")
+            body = self._body()
+            code = queries._code(body.get("stylePreset"), "stylePreset")
+            preset = next((p for p in lab.presets() if p["stylePreset"] == code), None)
+            if preset is None:
+                raise ValueError("알 수 없는 프리셋입니다")
+            gender = body.get("gender") or "auto"
+            if gender not in ("auto", "male", "female"):
+                raise ValueError("성별 값이 올바르지 않습니다")
+            capture = int(body.get("captureSteps") or 0)
+            if not 0 <= capture <= 8:
+                raise ValueError("중간 스텝 수는 0~8 입니다")
+            source = None
+            if body.get("fromItem"):
+                detail, image = source_photo(remote, str(body["fromItem"]), "LAB_INPUT_LOCAL")
+                source = {"itemId": detail["item"]["itemId"], "stylePreset": detail["item"]["stylePreset"]}
+            else:
+                data_url = body.get("image") or ""
+                if "," not in data_url:
+                    raise ValueError("사진을 골라 주세요")
+                image = base64.b64decode(data_url.split(",", 1)[1])
+            if len(image) > MAX_UPLOAD:
+                raise ValueError("사진이 15MB 를 넘습니다")
+            request = {"stylePreset": code, "gender": gender, "params": lab.clean_params(preset["engine"], body.get("params")),
+                       "captureSteps": capture if preset["captureSteps"] else 0, "label": (body.get("label") or "")[:80],
+                       "source": source}
+            run_id = lab.new_run_id()
+            lab.save_request(run_id, request, image)
+            gpu_request = {k: request[k] for k in ("stylePreset", "gender", "params", "captureSteps")}
+            jupyter.start_run(run_id, gpu_request, image, lab.RUNNER.read_bytes())
+            return {"runId": run_id}
+
+        def _lab_run(self, run_id):
+            result = lab.read_json(run_id, "result.json")
+            status = lab.read_json(run_id, "status.json")
+            if result is None and not (status or {}).get("error"):
+                raw = jupyter.run_file(run_id, "status.json")
+                status = json.loads(raw) if raw else {"stage": "queued"}
+                if status.get("done") and not status.get("error"):
+                    raw_result = jupyter.run_file(run_id, "result.json")
+                    if raw_result:
+                        result = json.loads(raw_result)
+                        names = ["analysis.png", "result.png", "cutout.png"] + [s["file"] for s in result.get("steps") or []]
+                        if result.get("reference"):
+                            names.append(result["reference"])
+                        for name in names:
+                            data = jupyter.run_file(run_id, name)
+                            if data:
+                                lab.write_file(run_id, name, data)
+                        lab.write_file(run_id, "result.json", raw_result)
+                if status.get("error") or result is not None:
+                    lab.write_file(run_id, "status.json", json.dumps(status, ensure_ascii=False).encode())
+            request = lab.read_json(run_id, "request.json")
+            if request is None:
+                raise ValueError("없는 실행입니다")
+            return {"runId": run_id, "request": request, "status": status, "result": result, "files": f"/lab-files/{run_id}/"}
 
         def _items(self, params):
             sql, limit = queries.items(params)
@@ -220,7 +329,10 @@ def main():
         team_public = candidate if candidate.is_dir() else None
     if not (STATIC / "cardface" / "cardface.js").exists():
         print("완성 카드 미리보기 모듈이 없습니다. node tools/admin-local/cardface/build.mjs 로 만들 수 있습니다.")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(remote, MediaCache(), team_public))
+    jupyter = Jupyter(config)
+    if not jupyter.ready:
+        print("실험실을 쓰려면 local.json 에 jupyter·gpu 설정을 넣으세요(README). 모니터는 그대로 쓸 수 있습니다.")
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(remote, MediaCache(), team_public, jupyter))
     print(f"카드 생성 모니터: http://127.0.0.1:{args.port}  (Ctrl+C 로 종료)", flush=True)
     try:
         server.serve_forever()

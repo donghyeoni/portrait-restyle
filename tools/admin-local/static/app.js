@@ -1,4 +1,5 @@
-// 카드 생성 모니터 (로컬). 서버(server.py)의 /api 만 부른다. 글자는 모두 textContent 로 넣는다.
+// 카드 생성 도구 (로컬). 서버(server.py)의 /api 만 부른다. 글자는 모두 textContent 로 넣는다.
+import { initLab, openFromItem } from "./lab.js";
 
 const HOURS = [6, 24, 72, 168, 720];
 const STATUS = { PENDING: "대기", PROCESSING: "생성 중", RETRY_WAITING: "재시도 대기", RECONCILING: "결과 대조", COMPLETED: "완료", FAILED: "실패", CANCELED: "취소" };
@@ -291,6 +292,7 @@ function renderDetail(detail, media) {
       cardFrame(detail, urls)),
     h("div", { class: "toolbar" },
       h("button", { type: "button", class: "btn btn--primary btn--small", disabled: detail.media.length === 0, onclick: (event) => { event.currentTarget.disabled = true; void openMedia(detail); } }, urls && !expired ? "이미지 다시 열기" : "이미지 열기"),
+      has("SOURCE") ? h("button", { type: "button", class: "btn btn--ghost btn--small", onclick: () => { switchView("lab"); openFromItem(item); } }, "이 사진으로 실험") : null,
       h("span", { class: "muted" }, `${has("SOURCE") ? "회원 원본 사진이 포함됩니다. 열 때마다 이 PC 의 logs/media-access.log 에 기록됩니다. " : ""}${expired ? "이미지가 만료되었습니다(5분)." : ""}`)),
     h("h3", {}, "실행 기록"),
     detail.attempts.length
@@ -313,8 +315,21 @@ function renderDetail(detail, media) {
   );
 }
 
+// ── 화면 전환 ──
+function switchView(name) {
+  for (const tab of document.querySelectorAll(".tabs__tab")) {
+    if (tab.dataset.view === name) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
+  }
+  $("view-monitor").hidden = name !== "monitor";
+  $("view-lab").hidden = name !== "lab";
+  window.scrollTo({ top: 0 });
+}
+
 // ── 시작 ──
 function init() {
+  for (const tab of document.querySelectorAll(".tabs__tab")) tab.addEventListener("click", () => switchView(tab.dataset.view));
+  void initLab();
   options($("summary-hours"), HOURS.map((v) => [String(v), `최근 ${hoursText(v)}`]));
   $("summary-hours").value = "24";
   const form = $("filters");
@@ -335,3 +350,5 @@ function init() {
 }
 
 init();
+
+export { h, api, formatMs, showError };

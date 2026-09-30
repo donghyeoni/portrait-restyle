@@ -11,12 +11,58 @@
   <div class="shell">
     <header class="shell__header">
       <div>
-        <h1>카드 생성 모니터 <span class="badge">로컬</span></h1>
-        <p class="muted">운영 DB 를 읽기 전용으로 봅니다. 이 PC 밖으로 나가는 것은 없습니다.</p>
+        <h1>카드 생성 도구 <span class="badge">로컬</span></h1>
+        <p class="muted">모니터는 운영 DB 를 읽기 전용으로 보고, 실험실은 GPU 서버에서 운영과 별도로 돌립니다.</p>
       </div>
+      <nav class="tabs" aria-label="화면">
+        <button type="button" class="tabs__tab" data-view="monitor" aria-current="page">모니터</button>
+        <button type="button" class="tabs__tab" data-view="lab">실험실</button>
+      </nav>
     </header>
     <div id="error" class="notice notice--error" hidden></div>
 
+    <main id="view-lab" class="view" hidden>
+      <div class="lab-grid">
+        <section class="panel">
+          <h2>실행</h2>
+          <form id="lab-form" class="lab-form">
+            <div id="lab-source" class="lab-source">
+              <label class="drop" id="lab-drop">
+                <input type="file" id="lab-file" accept="image/*" hidden />
+                <img id="lab-preview" alt="" hidden />
+                <span id="lab-drop-text">테스트 사진을 끌어 놓거나 눌러서 고르세요</span>
+              </label>
+              <p class="muted" id="lab-from" hidden></p>
+            </div>
+            <label>프리셋 <select name="stylePreset" id="lab-preset"></select></label>
+            <label>성별
+              <select name="gender"><option value="auto">자동 판별</option><option value="male">남</option><option value="female">여</option></select>
+            </label>
+            <div id="lab-fields" class="lab-fields"></div>
+            <label id="lab-capture-row">중간 스텝 수 <input type="number" name="captureSteps" min="0" max="8" value="3" /></label>
+            <label>메모 <input name="label" placeholder="예: guidance 3.6 비교" /></label>
+            <div class="toolbar">
+              <button type="submit" class="btn btn--primary" id="lab-run">실행</button>
+              <button type="button" class="btn btn--ghost btn--small" id="lab-defaults">기본값으로</button>
+            </div>
+            <p class="muted" id="lab-setup" hidden></p>
+          </form>
+        </section>
+        <section class="panel lab-view" id="lab-view">
+          <p class="muted">사진과 프리셋을 고르고 실행하면 단계별 결과가 여기에 나옵니다.</p>
+        </section>
+      </div>
+      <section class="panel">
+        <div class="panel__head">
+          <div><h2>실행 기록</h2><p class="muted">두 개 이상 체크하면 아래에 나란히 비교합니다. 기록은 이 PC 의 lab-runs/ 에만 있습니다.</p></div>
+          <button type="button" class="btn btn--ghost btn--small" id="lab-history-reload">새로고침</button>
+        </div>
+        <div class="history" id="lab-history"></div>
+        <div class="compare" id="lab-compare" hidden></div>
+      </section>
+    </main>
+
+    <main id="view-monitor" class="view">
     <section class="panel" id="summary">
       <div class="panel__head">
         <div>
@@ -66,6 +112,7 @@
         <p class="muted">왼쪽 목록에서 항목을 고르면 단계별 결과와 실행 기록을 보여 줍니다.</p>
       </section>
     </div>
+    </main>
   </div>
   <!-- 완성 카드 미리보기(선택). 없으면 카드 칸만 비어 있다. README 참고 -->
   <script type="module" src="/cardface/cardface.js"></script>
