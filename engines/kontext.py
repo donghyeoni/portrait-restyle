@@ -28,7 +28,9 @@ def lora_available(name: str | None) -> bool:
 
 def graph(img_name: str, prompt: str, tag: str, *, width: int = 896, height: int = 1152,
           guidance: float = 2.5, steps: int = 20, seed: int = 1000,
-          lora: str | None = None, lora_strength: float = 1.0) -> dict:
+          lora: str | None = None, lora_strength: float = 1.0, style_ref: str | None = None) -> dict:
+    """style_ref: ComfyUI input 에 올린 화풍 참고 이미지 이름. 주면 원본 오른쪽에 붙여 하나의 참조 잠재로 넣는다
+    (steps/glasses_kontext.py 와 같은 ImageStitch 방식). 문장에서 "오른쪽 그림의 화풍으로" 처럼 가리킨다."""
     g = {
         "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": UNET, "weight_dtype": "default"}},
         "clip": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "t5xxl_fp16.safetensors",
@@ -52,6 +54,11 @@ def graph(img_name: str, prompt: str, tag: str, *, width: int = 896, height: int
         g["lora"] = {"class_type": "LoraLoaderModelOnly",
                      "inputs": {"model": ["unet", 0], "lora_name": lora, "strength_model": lora_strength}}
         g["sampler"]["inputs"]["model"] = ["lora", 0]
+    if style_ref:
+        g["styleImg"] = {"class_type": "LoadImage", "inputs": {"image": style_ref}}
+        g["stitch"] = {"class_type": "ImageStitch", "inputs": {"image1": ["img", 0], "image2": ["styleImg", 0],
+                       "direction": "right", "match_image_size": True, "spacing_width": 0, "spacing_color": "white"}}
+        g["scale"]["inputs"]["image"] = ["stitch", 0]
     return g
 
 
