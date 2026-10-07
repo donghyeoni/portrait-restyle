@@ -1,0 +1,22 @@
+{
+  "ec2": {
+    "host": "<EC2 호스트 이름>",
+    "user": "<SSH 사용자>",
+    "key": "<SSH 개인키 경로, 예: C:/Users/me/Desktop/key.pem>"
+  },
+  "postgresContainer": "<EC2 의 Postgres 컨테이너 이름>",
+  "s3Container": "<EC2 에서 S3 를 쓰는 워커 컨테이너 이름>",
+  "teamFrontend": "<서비스 프런트 저장소의 frontend 폴더 경로 (선택, 완성 카드 미리보기)>",
+  "jupyter": {
+    "url": "<GPU 서버 JupyterHub 사용자 주소, 예: http://host/user/name>",
+    "token": "<JupyterHub Token 페이지에서 만든 API 토큰>"
+  },
+  "gpu": {
+    "codeRoot": "<GPU 서버의 파이프라인 코드 폴더>",
+    "pylib": "<추가 파이썬 라이브러리 폴더 (선택)>",
+    "comfyInput": "<ComfyUI input 폴더>",
+    "node": "<실험에 쓸 ComfyUI 주소, 예: http://127.0.0.1:<포트>>",
+    "python": "<파이프라인 venv 의 python>",
+    "labDir": "lab"
+  }
+}
