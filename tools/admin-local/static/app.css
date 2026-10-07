@@ -223,6 +223,7 @@ input, select {
 .kind-tile strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .kind-tile span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .kind-form { padding-top: 14px; border-top: 1px solid var(--line); }
+.style-row--two { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 .style-text { display: flex; flex-direction: column; gap: 10px; }
 .style-text textarea { min-height: 84px; }
 .drop__actions { display: flex; gap: 6px; justify-content: center; }

@@ -79,7 +79,6 @@ function renderCategory() {
     st.catEngine = cat?.engine ?? st.catEngine;
     form.elements.id.value = cat?.id ?? "";
     form.elements.id.readOnly = !st.isNewCat;
-    form.elements.name.value = cat?.name ?? "";
     form.elements.rarity.value = cat?.rarity ?? "SR";
     form.elements.memo.value = cat?.memo ?? "";
     renderCatEngines();
@@ -121,7 +120,7 @@ async function saveCategory(event) {
   $("cat-save").disabled = true;
   try {
     const saved = await post("/api/lab/categories", {
-      id: form.elements.id.value.trim().toLowerCase(), name: form.elements.name.value, engine: st.catEngine,
+      id: form.elements.id.value.trim().toLowerCase(), engine: st.catEngine,       // 이름은 id 와 같다
       rarity: form.elements.rarity.value, memo: form.elements.memo.value, isNew: st.isNewCat,
     });
     await loadCategories(saved.id);

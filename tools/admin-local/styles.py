@@ -164,13 +164,11 @@ def save_category(body: dict) -> dict:
         raise ValueError("지금은 얼굴 교체 카테고리만 만들 수 있습니다")
     if previous and previous["engine"] != engine and _kinds(cid, True):
         raise ValueError("종류가 있는 카테고리는 모델을 바꿀 수 없습니다 (종류의 문구·참고 사진이 모델마다 다릅니다)")
-    name = (body.get("name") or "").strip()
-    if not 1 <= len(name) <= 40:
-        raise ValueError("이름은 1~40자입니다")
     if body.get("rarity") not in RARITIES:
         raise ValueError("등급을 골라 주세요")
     now = _now()
-    _write_json(p, {"id": cid, "name": name, "engine": engine, "rarity": body["rarity"],
+    # 새 카테고리의 이름은 id 와 같다(사용자 결정 2026-10-07)
+    _write_json(p, {"id": cid, "name": cid, "engine": engine, "rarity": body["rarity"],
                     "memo": (body.get("memo") or "")[:500], "archived": bool((previous or {}).get("archived")),
                     "createdAt": (previous or {}).get("createdAt", now), "updatedAt": now})
     return get_category(cid)
