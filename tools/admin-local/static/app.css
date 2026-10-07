@@ -196,6 +196,8 @@ input, select {
 .engine-pick button { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .engine-pick button span { color: var(--muted); font-size: 11px; }
 .engine-pick button[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.model-fixed { margin: 0; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-2); font-size: 13px; }
+.model-fixed span { color: var(--muted); }
 .engine-pick--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .styles-grid { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
 .styles-grid .panel__head .btn { flex-shrink: 0; white-space: nowrap; }

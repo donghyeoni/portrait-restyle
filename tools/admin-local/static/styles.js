@@ -33,7 +33,7 @@ const REF_HELP = {
   inswapper: "reference 남자·여자: 얼굴을 넣을 템플릿. 테스트 사진 성별에 맞는 것을 씁니다. 하나 이상 필요합니다.",
 };
 
-const st = { engines: [], cats: [], cat: null, isNewCat: true, catEngine: "kontext", kind: null, refs: {}, remove: new Set() };
+const st = { engines: [], cats: [], cat: null, isNewCat: true, catEngine: "inswapper", kind: null, refs: {}, remove: new Set() };
 
 const refUrl = (k, g) => `/lab-style-files/${k.category}/${k.code}/reference_${g}.png?v=${encodeURIComponent(k.updatedAt ?? "")}`;
 const engineMeta = (engine) => st.engines.find((e) => e.engine === engine);
@@ -59,12 +59,10 @@ async function loadCategories(selectId) {
 }
 
 // ── 카테고리 폼 ──
+// 모델은 고정(지금은 얼굴 교체만) — 고르는 칸 없이 이름만 보인다
 function renderCatEngines() {
-  $("cat-engines").replaceChildren(...st.engines.filter((e) => ENGINE_LABEL[e.engine]).map((e) => h("button", {
-    type: "button", role: "radio", "aria-checked": String(e.engine === st.catEngine),
-    disabled: !st.isNewCat && (st.cat?.kinds.length ?? 0) > 0,
-    onclick: () => { st.catEngine = e.engine; renderCatEngines(); $("cat-engine-help").textContent = ENGINE_HELP[e.engine]; },
-  }, h("strong", {}, ENGINE_LABEL[e.engine]), h("span", {}, e.model))));
+  const e = engineMeta(st.catEngine);
+  $("cat-engines").replaceChildren("모델 ", h("strong", {}, ENGINE_LABEL[st.catEngine]), " ", h("span", {}, e?.model ?? ""));
 }
 
 function renderCategory() {
@@ -85,7 +83,7 @@ function renderCategory() {
     form.elements.rarity.value = cat?.rarity ?? "SR";
     form.elements.memo.value = cat?.memo ?? "";
     renderCatEngines();
-    $("cat-engine-help").textContent = ENGINE_HELP[st.catEngine] + ((cat?.kinds.length ?? 0) > 0 ? " (종류가 있어 모델은 바꿀 수 없습니다)" : "");
+    $("cat-engine-help").textContent = ENGINE_HELP[st.catEngine];
     $("cat-archive").hidden = st.isNewCat;
     $("cat-archive").textContent = cat?.archived ? "보관 풀기" : "보관";
   }
@@ -283,6 +281,7 @@ async function testKind() {
 export async function initStyles() {
   try {
     st.engines = await api("/api/lab/engines");
+    st.catEngine = st.engines[0]?.engine ?? st.catEngine;
   } catch (error) {
     showError(error);
     return;

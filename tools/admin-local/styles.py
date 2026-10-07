@@ -23,7 +23,7 @@ import lab
 STYLES_DIR = lab.HERE / "lab-styles"
 _CATEGORY_ID = re.compile(r"^[a-z][a-z0-9_]{1,30}$")
 _STYLE_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,39}$")
-ENGINES = ("kontext", "pulid", "inswapper")
+ENGINES = lab.ACTIVE_ENGINES          # 지금은 얼굴 교체만(고정). 문구·reference 처리는 다른 모델도 남겨 둔다
 TEXT = {"kontext": ("prompt", "prompt_male", "prompt_female"),
         "pulid": ("subject_male", "subject_female", "scene"), "inswapper": ()}
 REFERENCES = {"male": "reference_male.png", "female": "reference_female.png"}
@@ -126,9 +126,9 @@ def save_category(body: dict) -> dict:
     previous = _read_json(p) if p.exists() else None
     if previous and body.get("isNew"):
         raise ValueError(f"{cid} 카테고리가 이미 있습니다. 목록에서 골라 고치세요")
-    engine = body.get("engine")
+    engine = body.get("engine") or ENGINES[0]
     if engine not in ENGINES:
-        raise ValueError("모델을 골라 주세요")
+        raise ValueError("지금은 얼굴 교체 카테고리만 만들 수 있습니다")
     if previous and previous["engine"] != engine and _kinds(cid, True):
         raise ValueError("종류가 있는 카테고리는 모델을 바꿀 수 없습니다 (종류의 문구·참고 사진이 모델마다 다릅니다)")
     name = (body.get("name") or "").strip()

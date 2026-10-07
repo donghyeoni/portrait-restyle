@@ -104,13 +104,18 @@ def _custom_defaults(engine: str, collections) -> dict:
     return {}
 
 
+# 화면에서 쓰는 모델. 2026-10-07 부터 얼굴 교체만 쓴다(사용자 결정) — 고르는 칸 없이 고정.
+# 실행기(serving/lab/runner.py)는 나머지 모델도 그대로 돌릴 수 있다. 다시 열려면 여기에 더한다.
+ACTIVE_ENGINES = ("inswapper",)
+
+
 def engines() -> list[dict]:
     sys.path.insert(0, str(REPO))
     import manifests
     collections = list(manifests.all_collections().values())
     return [{**e, "fields": FIELDS[e["engine"]], "captureSteps": e["engine"] in ("pulid", "kontext"),
              "customDefaults": _custom_defaults(e["engine"], collections)}
-            for e in ENGINES]
+            for e in ENGINES if e["engine"] in ACTIVE_ENGINES]
 
 
 def presets() -> list[dict]:

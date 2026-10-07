@@ -11,7 +11,7 @@ const ENGINE = { pulid: "FLUX + PuLID", kontext: "FLUX Kontext + LoRA", inswappe
 const CUSTOM = "__custom__";
 const $ = (id) => document.getElementById(id);
 const lab = {
-  engines: [], presets: [], drafts: [], engine: "kontext", images: { image: null, styleRef: null, template: null },
+  engines: [], presets: [], drafts: [], engine: "inswapper", images: { image: null, styleRef: null, template: null },
   fromItem: null, open: null, timer: null, compare: new Set(), ready: false,
 };
 
@@ -39,10 +39,10 @@ function current() {
 }
 
 // ── 폼 ──
+// 모델은 고정(지금은 얼굴 교체만). 서버가 내준 모델이 하나뿐이면 고르는 칸 없이 이름만 보인다.
 function renderEngines() {
-  $("lab-engines").replaceChildren(...lab.engines.map((e) => h("button", {
-    type: "button", role: "radio", "aria-checked": String(e.engine === lab.engine), onclick: () => chooseEngine(e.engine),
-  }, h("strong", {}, e.label), h("span", {}, e.model))));
+  const e = engineOf(lab.engine);
+  $("lab-engines").replaceChildren("모델 ", h("strong", {}, e.label), " ", h("span", {}, e.model));
 }
 
 function renderPresets(selected) {
@@ -399,7 +399,7 @@ export function openFromItem(item) {
   $("lab-from").hidden = false;
   $("lab-from").textContent = `모니터 항목 #${item.itemId} (${item.stylePreset}) 의 회원 원본 사진을 씁니다. 실행할 때 원본을 받아 GPU 서버로 올리며 열람 기록이 남습니다.`;
   const preset = presetOf(item.stylePreset);
-  if (preset) chooseEngine(preset.engine, preset.stylePreset);
+  if (preset && engineOf(preset.engine)) chooseEngine(preset.engine, preset.stylePreset);
 }
 
 export async function initLab() {
@@ -414,6 +414,7 @@ export async function initLab() {
     showError(error);
     return;
   }
+  lab.engine = lab.engines[0]?.engine ?? lab.engine;
   chooseEngine(lab.engine);
   $("lab-preset").addEventListener("change", () => renderFields());
   $("lab-defaults").addEventListener("click", () => renderFields());

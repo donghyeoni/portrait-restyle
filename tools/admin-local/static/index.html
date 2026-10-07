@@ -26,7 +26,7 @@
       <div class="styles-grid">
         <section class="panel">
           <div class="panel__head">
-            <div><h2>카테고리</h2><p class="muted">카테고리마다 모델이 하나입니다(서비스와 같음). 서비스 카테고리에는 종류만 더할 수 있습니다.</p></div>
+            <div><h2>카테고리</h2><p class="muted">모델은 얼굴 교체로 고정입니다. 서비스 카테고리에는 종류만 더할 수 있습니다.</p></div>
             <button type="button" class="btn btn--primary btn--small" id="cat-new">새 카테고리</button>
           </div>
           <label class="check muted"><input type="checkbox" id="cat-archived" /> 보관한 것도 보기</label>
@@ -41,7 +41,7 @@
                 <span class="muted" id="cat-badge"></span>
               </div>
               <div id="cat-edit">
-                <div class="engine-pick engine-pick--three" id="cat-engines" role="radiogroup" aria-label="모델"></div>
+                <p class="model-fixed" id="cat-engines"></p>
                 <p class="muted" id="cat-engine-help"></p>
                 <div class="style-row">
                   <label>id <input name="id" placeholder="예: hero" autocomplete="off" /></label>
@@ -103,7 +103,7 @@
         <section class="panel">
           <h2>실행</h2>
           <form id="lab-form" class="lab-form">
-            <div class="engine-pick" id="lab-engines" role="radiogroup" aria-label="모델"></div>
+            <p class="model-fixed" id="lab-engines"></p>
             <label>화풍 <select name="stylePreset" id="lab-preset"></select></label>
             <p class="muted" id="lab-engine-help" hidden></p>
             <p class="notice notice--info" id="lab-draft-note" hidden></p>
