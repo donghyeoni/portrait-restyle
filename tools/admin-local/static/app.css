@@ -247,6 +247,9 @@ input, select {
 .style-text { display: flex; flex-direction: column; gap: 10px; }
 .style-text textarea { min-height: 84px; }
 .drop__actions { display: flex; gap: 6px; justify-content: center; }
+.used-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.used-head h3 { margin-top: 0; }
+.used-head span { font-size: 12px; }
 .notes { margin: 0; padding-left: 18px; color: var(--gold); font-size: 13px; }
 .lab-view { min-height: 320px; }
 .progress { display: flex; flex-direction: column; gap: 6px; }

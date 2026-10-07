@@ -305,11 +305,14 @@ function inputFigures(runId, request, result) {
   ];
 }
 
+// replaceChildren 은 null 을 "null" 글자로 넣는다. 조건부로 빠지는 칸은 걸러서 넣는다
+const fill = (el, ...children) => el.replaceChildren(...children.flat().filter((c) => c !== null && c !== undefined && c !== false));
+
 function renderRun(data) {
   const { runId, request, result, status } = data;
   const view = $("lab-view");
   if (!result) {
-    view.replaceChildren(
+    fill(view,
       h("h2", {}, `${runTitle(request)} 실패`),
       h("p", { class: "bad" }, status?.error ?? "원인을 알 수 없습니다"),
       h("div", { class: "strip" }, inputFigures(runId, request, null)),
@@ -321,12 +324,10 @@ function renderRun(data) {
   const used = { ...(result.used || {}) };
   const prompt = used.prompt;
   delete used.prompt;
-  view.replaceChildren(
-    h("div", { class: "panel__head" },
-      h("div", {},
-        h("h2", {}, `${runTitle(result)} `, h("span", { class: "muted" }, `${ENGINE[result.engine] ?? result.engine} · ${result.rarity ?? "-"}`)),
-        h("p", { class: "muted" }, `${runId}${request.label ? ` · ${request.label}` : ""}`)),
-      h("button", { type: "button", class: "btn btn--ghost btn--small", onclick: () => loadIntoForm(request) }, "이 설정을 폼에 불러오기")),
+  fill(view,
+    h("div", {},
+      h("h2", {}, `${runTitle(result)} `, h("span", { class: "muted" }, `${ENGINE[result.engine] ?? result.engine} · ${result.rarity ?? "-"}`)),
+      h("p", { class: "muted" }, `${runId}${request.label ? ` · ${request.label}` : ""}`)),
     result.notes?.length ? h("ul", { class: "notes" }, result.notes.map((n) => h("li", {}, n))) : null,
     h("h3", {}, "입력"),
     h("div", { class: "strip" }, inputFigures(runId, request, result)),
@@ -343,7 +344,10 @@ function renderRun(data) {
       ["성별", a.gender ?? "-"], ["안경", a.glasses ? `있음 (${a.glassesRatio})` : "없음"], ["얼굴 수", a.faces ?? "-"],
       ["결과 크기", (result.resultSize || []).join("×")], ["전체 시간", formatMs(result.totalMs)],
     ].map(([k, v]) => h("div", {}, h("dt", {}, k), h("dd", {}, String(v))))),
-    h("h3", {}, "적용된 값"),
+    h("div", { class: "used-head" },
+      h("h3", {}, "적용된 값"),
+      h("button", { type: "button", class: "btn btn--ghost btn--small", onclick: () => loadIntoForm(request) }, "같은 설정으로 다시 채우기"),
+      h("span", { class: "muted" }, "화풍·성별·조절값을 왼쪽 폼에 다시 채웁니다. 올려 둔 사진은 그대로입니다.")),
     h("dl", { class: "kv" }, Object.entries(used).map(([k, v]) => h("div", {}, h("dt", {}, k), h("dd", {}, typeof v === "object" ? JSON.stringify(v) : String(v))))),
     prompt ? h("pre", { class: "prompt" }, prompt) : null,
     h("h3", {}, "단계별 시간"),
