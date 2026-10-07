@@ -77,6 +77,38 @@ def _service() -> dict[str, dict]:
             for c in manifests.all_collections().values() if c.engine in ENGINES}
 
 
+def _service_kinds(cid: str) -> list[dict]:
+    """서비스 카테고리에 이미 있는 종류(프리셋)와 남·여 reference 유무. 화면에 작게 보여 주는 용도."""
+    sys.path.insert(0, str(lab.REPO))
+    import manifests
+    coll = manifests.all_collections().get(cid)
+    if coll is None:
+        return []
+    ref_dir = coll.reference_dir()
+    rows = []
+    for code, preset in coll.presets().items():
+        refs = [g for g in REFERENCES if _service_ref(ref_dir, g, preset["key"])]
+        rows.append({"code": code, "key": preset["key"], "rarity": preset.get("rarity") or coll.get("tier"), "references": refs})
+    return rows
+
+
+def _service_ref(ref_dir: pathlib.Path | None, gender: str, key: str) -> pathlib.Path | None:
+    d = ref_dir / gender if ref_dir else None
+    if d is None or not d.is_dir():
+        return None
+    return next((p for p in sorted(d.iterdir()) if p.stem == key and p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")), None)
+
+
+def service_reference_file(cid: str, code: str, gender: str) -> pathlib.Path | None:
+    """서비스 카테고리 종류의 reference 원본(data/reference/<id>/<gender>/<key>.*). 읽기만 한다."""
+    sys.path.insert(0, str(lab.REPO))
+    import manifests
+    coll = manifests.all_collections().get(check_category_id(cid))
+    if coll is None or gender not in REFERENCES or code not in coll.presets():
+        return None
+    return _service_ref(coll.reference_dir(), gender, coll.presets()[code]["key"])
+
+
 def _kind(cid: str, code: str) -> dict | None:
     d = STYLES_DIR / cid / code
     if not (d / "style.json").exists():
@@ -102,6 +134,7 @@ def get_category(cid: str, include_archived: bool = True) -> dict | None:
         return None
     cat = dict(service) if service else {**_read_json(p), "service": False, "presets": []}
     cat["kinds"] = _kinds(cid, include_archived)
+    cat["serviceKinds"] = _service_kinds(cid) if service else []
     return cat
 
 

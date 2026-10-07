@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import functools
 import getpass
 import json
 import mimetypes
@@ -84,6 +85,30 @@ CONTENT_TYPES = {
 
 
 MAX_UPLOAD = 15 * 1024 * 1024
+
+
+@functools.lru_cache(maxsize=256)
+def _thumbnail(path: str, mtime: float) -> tuple[bytes, str]:
+    try:
+        import cv2
+    except ImportError:                       # 표준 라이브러리만 있으면 원본을 그대로 준다
+        return pathlib.Path(path).read_bytes(), CONTENT_TYPES.get(pathlib.Path(path).suffix.lower(), "application/octet-stream")
+    img = cv2.imread(path, cv2.IMREAD_COLOR)
+    if img is None:
+        return pathlib.Path(path).read_bytes(), "application/octet-stream"
+    scale = THUMB_HEIGHT / img.shape[0]
+    if scale < 1:
+        img = cv2.resize(img, (max(1, round(img.shape[1] * scale)), THUMB_HEIGHT), interpolation=cv2.INTER_AREA)
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    return buf.tobytes(), "image/jpeg"
+
+
+def thumbnail(path: pathlib.Path) -> tuple[bytes, str]:
+    """화풍 추가의 작은 사진. 서비스 reference 는 수 MB 라 높이 240px JPEG 로 줄여 메모리에 둔다."""
+    return _thumbnail(str(path), path.stat().st_mtime)
+
+
+THUMB_HEIGHT = 240
 
 
 def source_photo(remote: Remote, item_id: str, purpose: str) -> tuple[dict, bytes]:
@@ -177,6 +202,11 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
                 return self._api(lambda: self._category(parts[4]))
             if path.startswith("/api/lab/categories/") and len(parts) == 7 and parts[5] == "kinds":
                 return self._api(lambda: self._kind(parts[4], parts[6]))
+            if path.startswith("/lab-service-refs/") and len(parts) == 5:   # /lab-service-refs/<id>/<CODE>/<male|female>
+                target = styles.service_reference_file(parts[2], parts[3], parts[4])
+                if target is None:
+                    return self._json(404, {"error": "없는 파일"})
+                return self._send(200, *thumbnail(target))
             if path.startswith("/lab-style-files/"):
                 target = styles.reference_file(parts[2], parts[3], parts[4]) if len(parts) == 5 else None
                 if target is None:

@@ -212,14 +212,16 @@ input, select {
 .style-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, .6fr); gap: 10px; }
 .styles-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .style-item__badge { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 11px; color: var(--muted); }
-.kind-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
-.kind-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.kind-card.is-open { border-color: var(--accent); }
-.kind-card.is-archived { opacity: .55; }
-.kind-card__refs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-.kind-card__refs img, .kind-card__refs div { width: 100%; aspect-ratio: 3 / 4; border-radius: 6px; background: var(--surface); object-fit: cover; }
-.kind-card strong { font-size: 13px; }
-.kind-card span { color: var(--muted); font-size: 12px; }
+.kind-groups { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.kind-group { margin: 6px 0 0; color: var(--muted); font-size: 12px; font-weight: 600; }
+.kind-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
+.kind-tile { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--ink); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.kind-tile:hover, .kind-tile.is-open { border-color: var(--accent); }
+.kind-tile.is-archived { opacity: .55; }
+.kind-tile__refs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.kind-tile__refs img, .kind-tile__refs div { width: 100%; aspect-ratio: 3 / 4; border-radius: 4px; background: var(--surface); object-fit: cover; }
+.kind-tile strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.kind-tile span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .kind-form { padding-top: 14px; border-top: 1px solid var(--line); }
 .style-text { display: flex; flex-direction: column; gap: 10px; }
 .style-text textarea { min-height: 84px; }

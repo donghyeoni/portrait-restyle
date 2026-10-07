@@ -74,7 +74,7 @@ function renderCategory() {
   $("cat-edit").hidden = service;
   $("cat-service").hidden = !service;
   if (service) {
-    $("cat-service").textContent = `모델 ${ENGINE_LABEL[cat.engine]} · 기본 등급 ${cat.rarity} · 기존 종류 ${cat.presets.length}개 (${cat.presets.join(", ")}). 이름·모델은 서비스 manifest 그대로이고, 아래에서 종류만 더합니다.`;
+    $("cat-service").textContent = `모델 ${ENGINE_LABEL[cat.engine]} · 기본 등급 ${cat.rarity} · 기존 종류 ${cat.presets.length}개(아래 사진). 이름·모델은 서비스 manifest 그대로이고, 아래에서 종류만 더합니다.`;
   } else {
     st.catEngine = cat?.engine ?? st.catEngine;
     form.elements.id.value = cat?.id ?? "";
@@ -144,17 +144,40 @@ async function archiveCategory() {
 }
 
 // ── 종류 ──
+const serviceRefUrl = (cid, code, g) => `/lab-service-refs/${cid}/${code}/${g}`;
+
+// 작은 종류 칸: 남·여 reference 를 나란히. 없는 성별은 빈 칸
+function kindTile({ refs, title, sub, open, archived, onclick, href }) {
+  const thumbs = h("div", { class: "kind-tile__refs" }, GENDERS.map(([g, label]) => (refs[g]
+    ? h("img", { src: refs[g], alt: `${title} ${label}`, loading: "lazy", title: `${title} · ${label}` })
+    : h("div", { title: `${label} 없음` }))));
+  const body = [thumbs, h("strong", {}, title), h("span", {}, sub)];
+  const cls = `kind-tile${open ? " is-open" : ""}${archived ? " is-archived" : ""}`;
+  return onclick ? h("button", { type: "button", class: cls, onclick }, body) : h("a", { class: cls, href, target: "_blank", rel: "noopener" }, body);
+}
+
 function renderKinds() {
   const cat = st.cat;
   $("kind-help").textContent = `${cat.name} 안의 화풍입니다. 코드는 서비스 stylePreset 코드가 됩니다.`;
   const kinds = cat.kinds.filter((k) => $("cat-archived").checked || !k.archived);
-  $("kind-list").replaceChildren(...(kinds.length ? kinds.map((k) => h("button", {
-    type: "button", class: `kind-card${k.code === st.kind?.code ? " is-open" : ""}${k.archived ? " is-archived" : ""}`,
-    onclick: () => openKind(k),
-  },
-    h("div", { class: "kind-card__refs" }, GENDERS.map(([g]) => (k.references?.includes(g) ? h("img", { src: refUrl(k, g), alt: "" }) : h("div")))),
-    h("strong", {}, k.name), h("span", {}, `${k.code} · ${k.rarity}${k.archived ? " · 보관" : ""}`),
-  )) : [h("p", { class: "muted" }, "아직 더한 종류가 없습니다. 종류 추가를 누르세요.")]));
+  const service = cat.serviceKinds ?? [];
+  const blocks = [];
+  if (service.length) {
+    blocks.push(h("h4", { class: "kind-group" }, `서비스에 있는 종류 ${service.length}개`),
+      h("div", { class: "kind-list" }, service.map((k) => kindTile({
+        refs: Object.fromEntries(k.references.map((g) => [g, serviceRefUrl(cat.id, k.code, g)])),
+        title: k.code, sub: `${k.key} · ${k.rarity}`, href: serviceRefUrl(cat.id, k.code, k.references[0] ?? "male"),
+      }))));
+  }
+  blocks.push(h("h4", { class: "kind-group" }, `추가한 종류 ${kinds.length}개`),
+    kinds.length
+      ? h("div", { class: "kind-list" }, kinds.map((k) => kindTile({
+        refs: Object.fromEntries((k.references ?? []).map((g) => [g, refUrl(k, g)])),
+        title: k.name, sub: `${k.code} · ${k.rarity}${k.archived ? " · 보관" : ""}`,
+        open: k.code === st.kind?.code, archived: k.archived, onclick: () => openKind(k),
+      })))
+      : h("p", { class: "muted" }, "아직 더한 종류가 없습니다. 종류 추가를 누르세요."));
+  $("kind-list").replaceChildren(...blocks);
 }
 
 function refDrop(g, label) {
