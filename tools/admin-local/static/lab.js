@@ -409,6 +409,23 @@ async function renderCompare() {
   )));
 }
 
+// 폼 전체를 처음 상태로: 입력 사진(모니터에서 넘어온 회원 원본 포함)·화풍·성별·조절값·중간 단계·메모
+function resetForm() {
+  const form = $("lab-form");
+  lab.images.image = null;
+  lab.fromItem = null;
+  const drop = document.querySelector('[data-image="image"]');
+  drop.querySelector("input").value = "";
+  drop.querySelector("img").hidden = true;
+  drop.querySelector("img").removeAttribute("src");
+  drop.querySelector("span").textContent = "입력 사진 — 끌어 놓거나 눌러서 고르세요";
+  $("lab-from").hidden = true;
+  form.elements.gender.value = "auto";
+  form.elements.captureSteps.value = 3;
+  form.elements.label.value = "";
+  chooseEngine(lab.engine);          // 화풍 목록 첫 항목과 그 기본값으로
+}
+
 // ── "화풍 추가" 와 잇기 ──
 export async function reloadDrafts() {
   try {
@@ -459,6 +476,7 @@ export async function initLab() {
   chooseEngine(lab.engine);
   $("lab-preset").addEventListener("change", () => renderFields());
   $("lab-defaults").addEventListener("click", () => renderFields());
+  $("lab-reset").addEventListener("click", resetForm);
   document.querySelectorAll("#lab-form .drop").forEach(bindDrop);
   bindViewer();
   $("lab-form").addEventListener("submit", submit);
