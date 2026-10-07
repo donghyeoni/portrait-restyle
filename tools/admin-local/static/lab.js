@@ -226,7 +226,53 @@ async function poll(runId) {
 function figure(label, url, free = false) {
   return h("figure", {}, h("figcaption", {}, label),
     h("div", { class: `frame${free ? " frame--free" : ""}` },
-      h("a", { href: url, target: "_blank", rel: "noopener" }, h("img", { src: url, alt: label }))));
+      h("a", { href: url, onclick: (e) => { e.preventDefault(); openViewer(url); } }, h("img", { src: url, alt: label }))));
+}
+
+// ── 사진 크게 보기: 지금 보고 있는 실행의 사진(입력 → 단계별 결과)을 순서대로 넘겨 본다 ──
+const viewer = { items: [], index: 0 };
+
+function openViewer(url) {
+  viewer.items = [...document.querySelectorAll("#lab-view .frame a img")].map((img) => ({ url: img.getAttribute("src"), label: img.alt }));
+  viewer.index = Math.max(0, viewer.items.findIndex((item) => item.url === url));
+  showViewer();
+  $("viewer").showModal();
+}
+
+function showViewer() {
+  const item = viewer.items[viewer.index];
+  if (!item) return;
+  const img = $("viewer-img");
+  $("viewer-body").classList.remove("is-zoomed");
+  img.onload = () => { $("viewer-meta").textContent = `${viewer.index + 1}/${viewer.items.length} · ${img.naturalWidth}×${img.naturalHeight}`; };
+  img.src = item.url;
+  img.alt = item.label;
+  $("viewer-title").textContent = item.label;
+  $("viewer-meta").textContent = `${viewer.index + 1}/${viewer.items.length}`;
+  $("viewer-open").href = item.url;
+  $("viewer-prev").disabled = viewer.index === 0;
+  $("viewer-next").disabled = viewer.index === viewer.items.length - 1;
+}
+
+function stepViewer(delta) {
+  const next = viewer.index + delta;
+  if (next < 0 || next >= viewer.items.length) return;
+  viewer.index = next;
+  showViewer();
+}
+
+function bindViewer() {
+  const dialog = $("viewer");
+  $("viewer-close").addEventListener("click", () => dialog.close());
+  $("viewer-prev").addEventListener("click", () => stepViewer(-1));
+  $("viewer-next").addEventListener("click", () => stepViewer(1));
+  $("viewer-img").addEventListener("click", () => $("viewer-body").classList.toggle("is-zoomed"));
+  // 사진 바깥(어두운 배경)을 누르면 닫는다
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+  dialog.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") { e.preventDefault(); stepViewer(-1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); stepViewer(1); }
+  });
 }
 
 function cardFigure(run, result) {
@@ -414,6 +460,7 @@ export async function initLab() {
   $("lab-preset").addEventListener("change", () => renderFields());
   $("lab-defaults").addEventListener("click", () => renderFields());
   document.querySelectorAll("#lab-form .drop").forEach(bindDrop);
+  bindViewer();
   $("lab-form").addEventListener("submit", submit);
   $("lab-history-reload").addEventListener("click", loadHistory);
   void loadHistory();

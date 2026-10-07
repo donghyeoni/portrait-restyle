@@ -195,6 +195,20 @@
     </div>
     </main>
   </div>
+  <!-- 화풍 테스트 결과 사진 크게 보기 -->
+  <dialog class="viewer" id="viewer" aria-label="사진 크게 보기">
+    <div class="viewer__head">
+      <strong id="viewer-title"></strong>
+      <span class="muted" id="viewer-meta"></span>
+      <span class="viewer__spacer"></span>
+      <a class="btn btn--ghost btn--small" id="viewer-open" target="_blank" rel="noopener">원본 새 탭</a>
+      <button type="button" class="btn btn--ghost btn--small" id="viewer-close" aria-label="닫기">닫기 (Esc)</button>
+    </div>
+    <div class="viewer__body" id="viewer-body"><img id="viewer-img" alt="" /></div>
+    <button type="button" class="viewer__nav viewer__nav--prev" id="viewer-prev" aria-label="이전 사진">‹</button>
+    <button type="button" class="viewer__nav viewer__nav--next" id="viewer-next" aria-label="다음 사진">›</button>
+    <p class="muted viewer__hint">사진을 누르면 원본 크기로 확대·축소 · ← → 로 이전·다음</p>
+  </dialog>
   <!-- 완성 카드 미리보기(선택). 없으면 카드 칸만 비어 있다. README 참고 -->
   <script type="module" src="/cardface/cardface.js"></script>
   <script type="module" src="/app.js"></script>

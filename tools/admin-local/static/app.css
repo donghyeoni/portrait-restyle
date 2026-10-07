@@ -143,6 +143,26 @@ input, select {
   background-position: 0 0, 8px 8px;
   background-size: 16px 16px;
 }
+.frame a { cursor: zoom-in; }
+.viewer { width: min(1200px, 96vw); height: 94vh; max-width: none; max-height: none; padding: 0; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface); color: var(--ink); }
+.viewer[open] { display: flex; flex-direction: column; }
+.viewer::backdrop { background: rgb(2 3 13 / 75%); }
+.viewer__head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.viewer__spacer { flex: 1; }
+.viewer__body { display: grid; flex: 1; min-height: 0; place-items: center; overflow: auto;
+  background-color: var(--surface-2);
+  background-image: linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%),
+    linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%);
+  background-position: 0 0, 10px 10px; background-size: 20px 20px; }
+/* 맞춤 보기: 창(94vh)에서 머리줄·안내줄을 뺀 높이 안에 다 들어오게 */
+.viewer__body img { display: block; max-width: 100%; max-height: calc(94vh - 92px); object-fit: contain; cursor: zoom-in; }
+.viewer__body.is-zoomed { place-items: start; }
+.viewer__body.is-zoomed img { max-width: none; max-height: none; cursor: zoom-out; }
+.viewer__nav { z-index: 1; width: 44px; height: 64px; border: 1px solid var(--line-strong); border-radius: 10px; background: rgb(16 36 72 / 80%); color: var(--ink); font-size: 28px; cursor: pointer; }
+.viewer__nav--prev { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); }
+.viewer__nav--next { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); }
+.viewer__nav:disabled { opacity: .3; cursor: default; }
+.viewer__hint { margin: 0; padding: 6px 14px; font-size: 12px; }
 .frame--card { aspect-ratio: 484 / 710; background-image: none; }
 .frame a, .frame img { display: block; width: 100%; height: 100%; }
 .frame img { object-fit: contain; }
