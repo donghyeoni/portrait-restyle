@@ -165,6 +165,8 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
                 return self._api(lambda: {"ready": jupyter.ready, "node": jupyter.gpu.get("node")})
             if path == "/api/lab/presets":
                 return self._api(lab.presets)
+            if path == "/api/lab/engines":
+                return self._api(lab.engines)
             if path == "/api/lab/runs":
                 return self._api(lab.history)
             if path.startswith("/api/lab/runs/"):
@@ -194,7 +196,7 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
 
         def _body(self) -> dict:
             size = int(self.headers.get("Content-Length") or 0)
-            if size > MAX_UPLOAD * 2:
+            if size > MAX_UPLOAD * 4:          # 실험실은 사진 세 장(입력·화풍 참고·템플릿)을 base64 로 보낸다
                 raise ValueError("요청이 너무 큽니다")
             return json.loads(self.rfile.read(size) or b"{}")
 
@@ -202,34 +204,60 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
             if not jupyter.ready:
                 raise ValueError("local.json 에 jupyter(url, token)·gpu(codeRoot, node) 설정이 필요합니다. README 참고")
             body = self._body()
-            code = queries._code(body.get("stylePreset"), "stylePreset")
-            preset = next((p for p in lab.presets() if p["stylePreset"] == code), None)
-            if preset is None:
-                raise ValueError("알 수 없는 프리셋입니다")
+            engine = next((e for e in lab.engines() if e["engine"] == body.get("engine")), None)
+            if engine is None:
+                raise ValueError("알 수 없는 모델입니다")
+            code = None
+            if body.get("stylePreset"):
+                code = queries._code(body.get("stylePreset"), "stylePreset")
+                preset = next((p for p in lab.presets() if p["stylePreset"] == code), None)
+                if preset is None or preset["engine"] != engine["engine"]:
+                    raise ValueError("이 모델의 화풍이 아닙니다")
+            elif not engine["custom"]:
+                raise ValueError(f"{engine['label']} 는 화풍(프리셋)을 골라야 합니다")
             gender = body.get("gender") or "auto"
             if gender not in ("auto", "male", "female"):
                 raise ValueError("성별 값이 올바르지 않습니다")
             capture = int(body.get("captureSteps") or 0)
-            if not 0 <= capture <= 8:
-                raise ValueError("중간 스텝 수는 0~8 입니다")
-            source = None
-            if body.get("fromItem"):
-                detail, image = source_photo(remote, str(body["fromItem"]), "LAB_INPUT_LOCAL")
-                source = {"itemId": detail["item"]["itemId"], "stylePreset": detail["item"]["stylePreset"]}
-            else:
-                data_url = body.get("image") or ""
+            if not 0 <= capture <= lab.MAX_CAPTURE:
+                raise ValueError(f"중간 스텝 수는 0~{lab.MAX_CAPTURE} 입니다")
+            params = lab.clean_params(engine["engine"], body.get("params"))
+            images: dict[str, bytes] = {}
+            for key, name in lab.IMAGES.items():
+                data_url = body.get(key) or ""
+                if not data_url:
+                    continue
                 if "," not in data_url:
+                    raise ValueError("이미지 형식이 올바르지 않습니다")
+                images[name] = base64.b64decode(data_url.split(",", 1)[1])
+                if len(images[name]) > MAX_UPLOAD:
+                    raise ValueError("이미지가 15MB 를 넘습니다")
+            if not engine["styleReference"]:
+                images.pop("style_ref.png", None)
+            if not engine["template"]:
+                images.pop("template.png", None)
+            if code is None and engine["engine"] == "kontext" and not params.get("prompt", "").strip():
+                raise ValueError("직접 입력 화풍은 프롬프트가 필요합니다")
+            if code is None and engine["engine"] == "inswapper" and "template.png" not in images:
+                raise ValueError("직접 입력 화풍은 템플릿 이미지가 필요합니다")
+            source = None
+            if "input.png" not in images:
+                if not body.get("fromItem"):
                     raise ValueError("사진을 골라 주세요")
-                image = base64.b64decode(data_url.split(",", 1)[1])
-            if len(image) > MAX_UPLOAD:
-                raise ValueError("사진이 15MB 를 넘습니다")
-            request = {"stylePreset": code, "gender": gender, "params": lab.clean_params(preset["engine"], body.get("params")),
-                       "captureSteps": capture if preset["captureSteps"] else 0, "label": (body.get("label") or "")[:80],
-                       "source": source}
+                detail, images["input.png"] = source_photo(remote, str(body["fromItem"]), "LAB_INPUT_LOCAL")
+                source = {"itemId": detail["item"]["itemId"], "stylePreset": detail["item"]["stylePreset"]}
+            request = {"engine": engine["engine"], "stylePreset": code, "gender": gender, "params": params,
+                       "captureSteps": capture if engine["captureSteps"] else 0, "label": (body.get("label") or "")[:80],
+                       "source": source, "images": sorted(images)}
             run_id = lab.new_run_id()
-            lab.save_request(run_id, request, image)
-            gpu_request = {k: request[k] for k in ("stylePreset", "gender", "params", "captureSteps")}
-            jupyter.start_run(run_id, gpu_request, image, lab.RUNNER.read_bytes())
+            lab.save_request(run_id, request, images)
+            gpu_request = {k: request[k] for k in ("engine", "stylePreset", "gender", "params", "captureSteps")}
+            try:
+                jupyter.start_run(run_id, gpu_request, images, lab.RUNNER.read_bytes(), lab.RUNNER_LIB.read_bytes())
+            except Exception as exc:           # 올리지 못한 실행이 기록에 '대기'로 남지 않게 실패로 적어 둔다
+                lab.write_file(run_id, "status.json", json.dumps(
+                    {"stage": "failed", "done": True, "error": f"GPU 서버에 올리지 못했습니다: {exc}"}, ensure_ascii=False).encode())
+                raise
             return {"runId": run_id}
 
         def _lab_run(self, run_id):

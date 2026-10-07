@@ -24,7 +24,7 @@ class CleanParamsTest(unittest.TestCase):
             runner.clean_params("kontext", {"lora": "yes"})
         self.assertEqual(runner.clean_params("kontext", {"lora": False}), {"lora": False})
 
-    def test_unknown_engine_keeps_nothing(self):
+    def test_engine_without_params_keeps_nothing(self):
         self.assertEqual(runner.clean_params("original", {"seed": 1}), {})
 
 
@@ -36,14 +36,17 @@ class CapturePointsTest(unittest.TestCase):
 
 
 class KontextStyleRefTest(unittest.TestCase):
-    def test_without_style_ref_graph_unchanged(self):
-        g = kontext.graph("a.png", "p", "t")
-        self.assertNotIn("stitch", g)
-        self.assertEqual(g["scale"]["inputs"]["image"], ["img", 0])
-
-    def test_style_ref_is_stitched_into_reference(self):
-        g = kontext.graph("a.png", "p", "t", style_ref="b.png")
+    def test_chain_adds_second_reference_and_keeps_input(self):
+        base = kontext.graph("a.png", "p", "t")
+        g = runner.with_style_ref(base, "b.png")
         self.assertEqual(g["styleImg"]["inputs"]["image"], "b.png")
+        self.assertEqual(g["styleRef"]["inputs"]["conditioning"], ["ref", 0])
+        self.assertEqual(g["guid"]["inputs"]["conditioning"], ["styleRef", 0])
+        self.assertEqual(g["scale"]["inputs"]["image"], ["img", 0])
+        self.assertEqual(base["guid"]["inputs"]["conditioning"], ["ref", 0])   # 운영 그래프는 그대로
+
+    def test_stitch_puts_reference_beside_input(self):
+        g = runner.with_style_ref(kontext.graph("a.png", "p", "t"), "b.png", "stitch")
         self.assertEqual(g["stitch"]["inputs"]["image1"], ["img", 0])
         self.assertEqual(g["scale"]["inputs"]["image"], ["stitch", 0])
 

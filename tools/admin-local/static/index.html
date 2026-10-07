@@ -26,20 +26,34 @@
         <section class="panel">
           <h2>실행</h2>
           <form id="lab-form" class="lab-form">
-            <div id="lab-source" class="lab-source">
-              <label class="drop" id="lab-drop">
-                <input type="file" id="lab-file" accept="image/*" hidden />
-                <img id="lab-preview" alt="" hidden />
-                <span id="lab-drop-text">테스트 사진을 끌어 놓거나 눌러서 고르세요</span>
+            <div class="engine-pick" id="lab-engines" role="radiogroup" aria-label="모델"></div>
+            <label>화풍 <select name="stylePreset" id="lab-preset"></select></label>
+            <p class="muted" id="lab-engine-help" hidden></p>
+            <div class="lab-images">
+              <div class="lab-source">
+                <label class="drop" data-image="image">
+                  <input type="file" accept="image/*" hidden />
+                  <img alt="" hidden />
+                  <span>입력 사진 — 끌어 놓거나 눌러서 고르세요</span>
+                </label>
+                <p class="muted" id="lab-from" hidden></p>
+              </div>
+              <label class="drop drop--ref" data-image="styleRef" hidden>
+                <input type="file" accept="image/*" hidden />
+                <img alt="" hidden />
+                <span>화풍 참고 이미지 (선택)</span>
               </label>
-              <p class="muted" id="lab-from" hidden></p>
+              <label class="drop drop--ref" data-image="template" hidden>
+                <input type="file" accept="image/*" hidden />
+                <img alt="" hidden />
+                <span>템플릿 / 코스튬 이미지</span>
+              </label>
             </div>
-            <label>프리셋 <select name="stylePreset" id="lab-preset"></select></label>
             <label>성별
               <select name="gender"><option value="auto">자동 판별</option><option value="male">남</option><option value="female">여</option></select>
             </label>
             <div id="lab-fields" class="lab-fields"></div>
-            <label id="lab-capture-row">중간 스텝 수 <input type="number" name="captureSteps" min="0" max="8" value="3" /></label>
+            <label id="lab-capture-row">중간 스텝 수 (0~6, 한 장마다 생성을 한 번 더 돌립니다) <input type="number" name="captureSteps" min="0" max="6" value="3" /></label>
             <label>메모 <input name="label" placeholder="예: guidance 3.6 비교" /></label>
             <div class="toolbar">
               <button type="submit" class="btn btn--primary" id="lab-run">실행</button>
@@ -49,7 +63,7 @@
           </form>
         </section>
         <section class="panel lab-view" id="lab-view">
-          <p class="muted">사진과 프리셋을 고르고 실행하면 단계별 결과가 여기에 나옵니다.</p>
+          <p class="muted">모델·화풍·사진을 고르고 실행하면 입력부터 결과까지 단계별로 여기에 나옵니다.</p>
         </section>
       </div>
       <section class="panel">

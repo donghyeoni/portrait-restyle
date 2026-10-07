@@ -102,13 +102,17 @@ class Jupyter:
         return "".join(out)
 
     # ── 실험 ──
-    def start_run(self, run_id: str, request: dict, image: bytes, runner: bytes):
+    def start_run(self, run_id: str, request: dict, images: dict[str, bytes], runner: bytes, runner_lib: bytes):
+        """images: {"input.png": ..., "style_ref.png": ..., "template.png": ...} 중 있는 것.
+        runner 는 gpu_lab.py, runner_lib 는 serving/lab/runner.py (lab_runner.py 로 옆에 둔다)."""
         runs = f"{self.lab_dir}/runs"
         self.mkdir(self.lab_dir)
         self.mkdir(runs)
         self.mkdir(f"{runs}/{run_id}")
         self.put_file(f"{self.lab_dir}/gpu_lab.py", runner)
-        self.put_file(f"{runs}/{run_id}/input.png", image)
+        self.put_file(f"{self.lab_dir}/lab_runner.py", runner_lib)
+        for name, data in images.items():
+            self.put_file(f"{runs}/{run_id}/{name}", data)
         env = {k: self.gpu[k] for k in ("codeRoot", "pylib", "comfyInput", "node") if self.gpu.get(k)}
         self.put_file(f"{runs}/{run_id}/request.json", json.dumps({**request, "env": env}, ensure_ascii=False).encode())
         python = self.gpu.get("python", "python3")

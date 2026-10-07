@@ -49,15 +49,32 @@ node tools/admin-local/cardface/build.mjs
 
 ## 실험실
 
-테스트 사진(또는 모니터 항목의 회원 원본)으로 프리셋을 **파라미터를 바꿔** 돌리고 단계별 결과를 본다.
-운영 GPU 서비스·워커·ComfyUI 설정은 건드리지 않는다. GPU 서버의 JupyterHub 로 실행기(`lab/gpu_lab.py`)를
-올려 백그라운드 프로세스로 돌리고, 결과 파일을 받아 이 PC 의 `lab-runs/` 에 둔다(git 에 올리지 않는다).
+**모델(Kontext · PuLID · 얼굴 교체 · 원본 크롭)과 화풍**을 고르고, 테스트 사진(또는 모니터 항목의 회원 원본)과
+참고 이미지를 넣어 **입력부터 결과까지** 단계별로 본다. 값을 바꿔 여러 번 돌려 나란히 비교할 수 있다.
+운영 GPU 서비스·워커·ComfyUI 설정은 건드리지 않는다. GPU 서버의 JupyterHub 로 실행기를 올려 백그라운드
+프로세스로 돌리고, 결과 파일을 받아 이 PC 의 `lab-runs/` 에 둔다(git 에 올리지 않는다).
+
+실행 코드는 `serving/lab/runner.py` 다 — 운영 관리자 화면의 실험 워커(`serving/lab/worker.py`)와 **같은 코드**라,
+여기서 확인한 결과가 운영 실험실에서도 그대로 나온다. 로컬 도구는 이 파일을 `lab_runner.py` 로, 파일 입출력만 하는
+`lab/gpu_lab.py` 와 함께 올린다(GPU 서버 코드 폴더에 아직 없어도 돈다).
+
+| 모델 | 화풍 | 참고 이미지 |
+|---|---|---|
+| Kontext | 프리셋 또는 **직접 입력**(프롬프트 필수) | **화풍 참고 이미지**(선택) — 두 번째 참조로 넣는다(`참고 방식` chain). 프롬프트에서 "the art style of the second image" 처럼 가리킨다 |
+| PuLID | 프리셋만 | 쓰지 않는다(서버에 IP-Adapter·Redux 모델이 없음). 프롬프트와 값만 바꾼다 |
+| 얼굴 교체 | 프리셋 또는 **직접 입력**(템플릿 필수) | **템플릿 / 코스튬 이미지** — 올리면 프리셋 그림 대신 이 그림에 얼굴을 넣는다 |
+| 원본 크롭 | 프리셋만 | 없음 |
+
+화풍 참고 이미지 시험(2026-10-07, GPU 3번): 입력 옆에 붙이는 stitch 는 결과가 **참고 그림의 인물을 그대로 베꼈고**,
+참조를 따로 잇는 chain 은 입력 인물을 지키며 그림체만 옅게 따라갔다. 참고 그림이 실사 인물 사진이면 chain 도
+그 인물을 따라가므로 그림체가 드러난 그림을 쓴다. 두 방식은 `참고 방식` 값으로 골라 비교할 수 있다.
 
 | 단계 | 내용 |
 |---|---|
+| 입력 | 입력 사진, 올린 화풍 참고·템플릿(또는 쓴 프리셋 템플릿) |
 | 사진 분석 | 운영과 같은 antelopev2 검출·안경 판별. 얼굴 박스·랜드마크를 그린 이미지, 얼굴 높이 비율, 자동 성별 |
-| 중간 스텝 | PuLID·Kontext 는 같은 시드로 N 스텝에서 멈춘 실제 중간 상태(KSamplerAdvanced). 스텝마다 다시 그려 시간이 늘어난다 |
-| 결과 · 누끼 · 카드 | AI 결과, BiRefNet 누끼, 서비스 CardFace 로 합성한 카드 |
+| 중간 스텝 | PuLID·Kontext 는 같은 시드로 N 스텝에서 멈춘 실제 중간 상태(KSamplerAdvanced, 최대 6장). 스텝마다 다시 그려 시간이 늘어난다 |
+| 결과 · 누끼 · 카드 | AI 결과, BiRefNet 누끼, 서비스 CardFace 로 합성한 카드(프리셋일 때만) |
 | 지표 | 원본 대비 얼굴 유사도(antelopev2), 단계별 시간, 실제로 적용된 값과 프롬프트 |
 
 엔진별로 바꿀 수 있는 값: PuLID(시드·스텝·guidance·PuLID weight/시작/끝·안경 문구·추가 프롬프트),
@@ -73,7 +90,9 @@ Kontext(시드·스텝·guidance·LoRA 강도/사용·업스케일·프롬프트
 1. GPU 서버의 JupyterHub 에서 **Token** 페이지(`/hub/token`)로 API 토큰을 만든다.
 2. `local.json` 의 `jupyter.url`(사용자 서버 주소)과 `jupyter.token` 을 채운다.
 3. `gpu` 에 서버 경로를 넣는다: `codeRoot`(파이프라인 코드), `pylib`(추가 라이브러리, 선택), `comfyInput`(ComfyUI input 폴더),
-   `node`(실험에 쓸 ComfyUI 주소 — 운영과 같이 쓰면 그만큼 운영이 기다린다), `python`(파이프라인 venv 의 python).
+   `node`(실험에 쓸 ComfyUI 주소 — 실험 전용 GPU 3번은 `http://127.0.0.1:8191`. 운영과 같이 쓰면 그만큼 운영이 기다린다),
+   `python`(파이프라인 venv 의 python).
+4. 그 ComfyUI 가 떠 있어야 한다. GPU 서버에서 `cd ~/portrait-restyle && GPUS=3 bash serving/run_multi_gpu.sh`.
 
 ## 파일
 
@@ -83,4 +102,4 @@ Kontext(시드·스텝·guidance·LoRA 강도/사용·업스케일·프롬프트
 - `static/` — 화면(프레임워크 없이 HTML·CSS·JS)
 - `cardface/` — 완성 카드 미리보기 빌드
 - `lab.py` · `jupyter.py` — 실험실 프리셋·기록, GPU 서버 JupyterHub 연결
-- `lab/gpu_lab.py` — GPU 서버에서 도는 실험 실행기
+- `lab/gpu_lab.py` — GPU 서버에서 도는 실험 실행기의 입출력 껍데기. 실제 실행은 `serving/lab/runner.py`

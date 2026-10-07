@@ -184,7 +184,18 @@ input, select {
 .lab-fields .check { flex-direction: row; align-items: center; gap: 8px; }
 .drop { display: grid; place-items: center; min-height: 140px; padding: 8px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--surface-2); cursor: pointer; text-align: center; }
 .drop.is-over { border-color: var(--accent); }
+.lab-form .drop { align-items: center; justify-content: center; }
 .drop img { max-width: 100%; max-height: 220px; border-radius: 8px; }
+.drop span { color: var(--muted); font-size: 12px; }
+.lab-images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lab-images .lab-source { grid-column: 1 / -1; }
+.drop--ref { min-height: 110px; }
+.drop--ref img { max-height: 140px; }
+.engine-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.engine-pick button { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.engine-pick button span { color: var(--muted); font-size: 11px; }
+.engine-pick button[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.notes { margin: 0; padding-left: 18px; color: var(--gold); font-size: 13px; }
 .lab-view { min-height: 320px; }
 .progress { display: flex; flex-direction: column; gap: 6px; }
 .progress__bar { height: 6px; overflow: hidden; border-radius: 3px; background: var(--surface-2); }

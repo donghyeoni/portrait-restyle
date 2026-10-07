@@ -1,4 +1,4 @@
-"""실험실: 프리셋 목록·기본 파라미터, 실행 기록 보관.
+"""실험실: 모델·화풍(프리셋) 목록과 기본 파라미터, 실행 기록 보관.
 
 프리셋과 기본값은 이 저장소의 manifests 를 읽는다(서비스 카탈로그의 원본). GPU 서버에서 실제로 쓰는 코드와
 어긋나면 결과 화면의 "적용된 값"이 기준이다 — 실행기가 실제로 쓴 값을 돌려준다.
@@ -17,6 +17,9 @@ HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 RUNS = HERE / "lab-runs"
 RUNNER = HERE / "lab" / "gpu_lab.py"
+RUNNER_LIB = REPO / "serving" / "lab" / "runner.py"      # 운영 관리자 실험 워커와 같은 실행 코드
+MAX_CAPTURE = 6                                          # runner.MAX_CAPTURE 와 같다
+IMAGES = {"image": "input.png", "styleRef": "style_ref.png", "template": "template.png"}
 _RUN_ID = re.compile(r"^[a-z0-9_-]{6,64}$")
 _FILE = re.compile(r"^[a-z0-9_]{1,40}\.(png|json)$")
 
@@ -39,6 +42,7 @@ FIELDS = {
         {"key": "lora_strength", "label": "LoRA 강도", "kind": "number", "step": 0.05, "min": 0, "max": 2},
         {"key": "lora", "label": "LoRA 사용", "kind": "bool"},
         {"key": "upscale", "label": "업스케일 배율(0=끔)", "kind": "number", "step": 0.01, "min": 0, "max": 4},
+        {"key": "style_mode", "label": "참고 방식(화풍 참고 이미지)", "kind": "select", "options": ["chain", "stitch"]},
         {"key": "prompt", "label": "프롬프트(비우면 프리셋 문구)", "kind": "text"},
     ],
     "inswapper": [
@@ -49,6 +53,23 @@ FIELDS = {
     ],
     "original": [],
 }
+
+
+# 모델(엔진) 고르기. styleReference·template: 그 모델이 받는 참고 이미지. custom: 프리셋 없이 직접 입력할 수 있는지
+ENGINES = [
+    {"engine": "kontext", "label": "Kontext", "model": "FLUX.1 Kontext dev + 웹툰 LoRA",
+     "styleReference": True, "template": False, "custom": True,
+     "customHelp": "직접 입력은 프롬프트가 필요합니다. 화풍 참고 이미지는 그림체가 드러난 그림을 쓰세요(실사 인물 사진은 그 인물을 베낍니다). "
+                   "프롬프트 예: Redraw the person from the first image in the art style of the second image."},
+    {"engine": "pulid", "label": "PuLID", "model": "FLUX.1 dev + PuLID",
+     "styleReference": False, "template": False, "custom": False,
+     "customHelp": "PuLID 는 참고 이미지를 쓰지 않습니다(서버에 IP-Adapter·Redux 모델이 없음). 프롬프트와 값만 바꿉니다."},
+    {"engine": "inswapper", "label": "얼굴 교체", "model": "inswapper_128 + GFPGAN",
+     "styleReference": False, "template": True, "custom": True,
+     "customHelp": "직접 입력은 템플릿(코스튬) 이미지가 필요합니다. 템플릿을 올리면 프리셋 그림 대신 씁니다."},
+    {"engine": "original", "label": "원본 크롭", "model": "얼굴 기준 크롭",
+     "styleReference": False, "template": False, "custom": False, "customHelp": ""},
+]
 
 
 def _defaults(coll, preset: dict) -> dict:
@@ -66,6 +87,26 @@ def _defaults(coll, preset: dict) -> dict:
     if engine == "inswapper":
         return dict(coll.swap_opts(preset))
     return {}
+
+
+def _custom_defaults(engine: str, collections) -> dict:
+    """프리셋 없이 돌릴 때의 기본값. runner 와 같게 Kontext 는 첫 Kontext 컬렉션 값을 쓴다."""
+    if engine == "kontext":
+        coll = next((c for c in collections if c.engine == "kontext"), None)
+        if coll is not None:
+            return {**_defaults(coll, {}), "lora": False}
+    if engine == "inswapper":
+        return {"bangs": "keep", "crop": "upper", "restore": 0.0, "face_mask": False}
+    return {}
+
+
+def engines() -> list[dict]:
+    sys.path.insert(0, str(REPO))
+    import manifests
+    collections = list(manifests.all_collections().values())
+    return [{**e, "fields": FIELDS[e["engine"]], "captureSteps": e["engine"] in ("pulid", "kontext"),
+             "customDefaults": _custom_defaults(e["engine"], collections) if e["custom"] else None}
+            for e in ENGINES]
 
 
 def presets() -> list[dict]:
@@ -121,11 +162,13 @@ def run_dir(run_id: str) -> pathlib.Path:
     return RUNS / run_id
 
 
-def save_request(run_id: str, request: dict, image: bytes):
+def save_request(run_id: str, request: dict, images: dict[str, bytes]):
+    """images: {"input.png": ..., "style_ref.png": ..., "template.png": ...} 중 있는 것."""
     d = run_dir(run_id)
     d.mkdir(parents=True, exist_ok=True)
     (d / "request.json").write_text(json.dumps(request, ensure_ascii=False, indent=1), encoding="utf-8")
-    (d / "input.png").write_bytes(image)
+    for name, data in images.items():
+        write_file(run_id, name, data)
 
 
 def read_json(run_id: str, name: str):
@@ -155,7 +198,7 @@ def history(limit: int = 60) -> list[dict]:
         result = read_json(d.name, "result.json")
         status = read_json(d.name, "status.json") or {}
         rows.append({
-            "runId": d.name, "stylePreset": req.get("stylePreset"), "gender": req.get("gender"),
+            "runId": d.name, "engine": req.get("engine"), "stylePreset": req.get("stylePreset"), "gender": req.get("gender"),
             "params": req.get("params"), "label": req.get("label"), "source": req.get("source"),
             "state": "done" if result else ("failed" if status.get("error") else status.get("stage", "queued")),
             "identity": result.get("identity") if result else None, "totalMs": result.get("totalMs") if result else None,

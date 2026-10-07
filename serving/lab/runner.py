@@ -1,15 +1,16 @@
 """화풍 실험실 실행기 (운영 관리자 화면에서 온 실험 한 건).
 
 운영 카드 생성과 같은 엔진 함수를 쓰되, 관리자가 고른 값과 참고 이미지로 돌리고 중간 결과를 남긴다.
-로컬 도구의 실행기(tools/admin-local/lab/gpu_lab.py)와 같은 흐름이고, 여기에 두 가지가 더 있다.
+운영 관리자 실험 워커(serving/lab/worker.py)와 로컬 도구(tools/admin-local/lab/gpu_lab.py)가 함께 쓴다.
+운영 카드 생성에 없는 것이 두 가지 있다.
 
-- 화풍 참고 이미지(Kontext): 원본 오른쪽에 붙여 하나의 참조 잠재로 넣는다 (engines/kontext.graph style_ref).
+- 화풍 참고 이미지(Kontext): 원본과 함께 참조 잠재로 넣는다 (with_style_ref, chain 또는 stitch).
 - 템플릿/코스튬 이미지(얼굴 교체): 프리셋 참고 그림 대신 올린 그림에 얼굴을 넣는다.
 
   result = run(request, workdir, node="http://127.0.0.1:8191")
 
 request (메시지 payload 중 실행에 쓰는 부분):
-  engine        inswapper | pulid | kontext
+  engine        inswapper | pulid | kontext | original(로컬 도구만)
   stylePreset   프리셋 코드. 없으면 직접 입력(kontext 는 prompt, inswapper 는 template 필수)
   gender        male | female | auto
   params        엔진별 조절값 (PARAM_FIELDS)
@@ -28,7 +29,7 @@ import cv2
 import numpy as np
 
 MAX_CAPTURE = 6
-ENGINES = ("inswapper", "pulid", "kontext")
+ENGINES = ("inswapper", "pulid", "kontext", "original")
 
 # 엔진별로 바꿀 수 있는 값. 화면·백엔드는 이 이름만 보낸다 (그 밖의 키는 버린다).
 PARAM_FIELDS: dict[str, dict[str, tuple]] = {
@@ -36,7 +37,8 @@ PARAM_FIELDS: dict[str, dict[str, tuple]] = {
               "pulid_weight": ("float", 0, 3), "pulid_start": ("float", 0, 1), "pulid_end": ("float", 0, 1),
               "glasses": ("enum", "auto", "on", "off"), "prompt": ("text",)},
     "kontext": {"seed": ("int", 0, 2**31 - 1), "steps": ("int", 4, 60), "guidance": ("float", 1, 8),
-                "lora": ("bool",), "lora_strength": ("float", 0, 2), "upscale": ("float", 0, 4), "prompt": ("text",)},
+                "lora": ("bool",), "lora_strength": ("float", 0, 2), "upscale": ("float", 0, 4), "prompt": ("text",),
+                "style_mode": ("enum", "chain", "stitch")},
     "inswapper": {"bangs": ("enum", "keep", "drop"), "crop": ("enum", "upper", "fit"),
                   "restore": ("float", 0, 1), "face_mask": ("bool",)},
 }
@@ -98,6 +100,28 @@ def advanced(graph: dict, end: int, total: int) -> dict:
             }
             return g
     raise RuntimeError("KSampler 가 없는 그래프")
+
+
+def with_style_ref(graph: dict, image_name: str, mode: str = "chain") -> dict:
+    """Kontext 그래프에 화풍 참고 그림을 참조로 더한다. 운영 engines/kontext.graph 는 그대로 두고 실험에서만 덧붙인다.
+
+    chain : 원본 참조 뒤에 참고 그림을 두 번째 ReferenceLatent 로 잇는다. 원본 인물·구도를 지킨다(기본).
+    stitch: 원본 오른쪽에 참고 그림을 붙여(ImageStitch) 참조 하나로 넣는다(steps/glasses_kontext.py 방식).
+            2026-10-07 시험에서 결과가 참고 그림의 인물을 그대로 베꼈다. 비교용으로 남긴다.
+    참고 그림이 실사 인물 사진이면 chain 도 그 인물을 따라간다 — 그림체가 드러난 그림을 쓴다.
+    """
+    g = copy.deepcopy(graph)
+    g["styleImg"] = {"class_type": "LoadImage", "inputs": {"image": image_name}}
+    if mode == "stitch":
+        g["stitch"] = {"class_type": "ImageStitch", "inputs": {"image1": ["img", 0], "image2": ["styleImg", 0],
+                       "direction": "right", "match_image_size": True, "spacing_width": 0, "spacing_color": "white"}}
+        g["scale"]["inputs"]["image"] = ["stitch", 0]
+        return g
+    g["styleScale"] = {"class_type": "FluxKontextImageScale", "inputs": {"image": ["styleImg", 0]}}
+    g["styleEnc"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["styleScale", 0], "vae": ["vae", 0]}}
+    g["styleRef"] = {"class_type": "ReferenceLatent", "inputs": {"conditioning": ["ref", 0], "latent": ["styleEnc", 0]}}
+    g["guid"]["inputs"]["conditioning"] = ["styleRef", 0]
+    return g
 
 
 def capture_points(total: int, count: int) -> list[int]:
@@ -248,6 +272,8 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
                 "seed": int(params.get("seed", kx.get("seed", 1000))), "lora": use_lora,
                 "loraStrength": float(params.get("lora_strength", lora.get("strength", 1.0))), "prompt": text,
                 "upscale": float(params.get("upscale", out.get("upscale") or 0) or 0), "styleReference": has_style}
+        if has_style:
+            used["styleMode"] = params.get("style_mode", "chain")
         name = stage(src_path, "_lab")
         style_name = stage(style_path, "_labref") if has_style else None
         try:
@@ -255,7 +281,9 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
                 reference = r.write("reference.png", _read(style_path, "화풍 참고"))
             g = kontext.graph(name, text, f"lab_{workdir.name}", width=out.get("width", 896),
                               height=out.get("height", 1152), guidance=used["guidance"], steps=total,
-                              seed=used["seed"], lora=use_lora, lora_strength=used["loraStrength"], style_ref=style_name)
+                              seed=used["seed"], lora=use_lora, lora_strength=used["loraStrength"])
+            if style_name:
+                g = with_style_ref(g, style_name, used["styleMode"])
             final = diffusion(g, total)
         finally:
             unstage(name)
@@ -264,6 +292,14 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
         if used["upscale"]:
             with r.stage("upscale", f"업스케일 ×{used['upscale']}"):
                 final = upscale(final, used["upscale"])
+            if ctx_id < 0:
+                notes.append("GPU 를 ComfyUI 에만 써서 업스케일은 CPU Lanczos 입니다 (운영은 4x-UltraSharp, 크기는 같음)")
+    elif engine == "original":
+        if preset is None:
+            raise LabError("PRESET_REQUIRED", "원본 크롭은 화풍(프리셋)을 골라야 합니다")
+        from serving.worker import cpu_path
+        with r.stage("crop", "원본 크롭"):
+            final = cpu_path.original(None, coll, preset, img)
     else:  # inswapper
         from engines.inswapper import prepare_source, swap_into
         if has_style:
@@ -308,6 +344,7 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
 
     return {
         "engine": engine, "stylePreset": code, "collection": coll.id if coll is not None else None,
+        "rarity": (preset.get("rarity", coll.get("tier")) if preset is not None else None),
         "analysis": analysis, "used": used, "notes": notes, "steps": steps, "reference": reference,
         "resultSize": [int(final.shape[1]), int(final.shape[0])], "identity": identity,
         "timings": r.timings, "totalMs": int((time.time() - r.t0) * 1000),
