@@ -55,7 +55,7 @@ def main():
         status("failed", done=True, error=f"{exc.code}: {exc.message}", code=exc.code)
         return
     result["files"] = {"input": "input.png", "analysis": "analysis.png", "result": "result.png", "cutout": "cutout.png"}
-    for name in ("style_ref.png", "template.png"):
+    for name in ("style_ref.png", "template.png", "template_male.png", "template_female.png"):
         if (RUN / name).exists():
             result["files"][name.split(".")[0]] = name
     (RUN / "result.json").write_text(json.dumps(result, ensure_ascii=False, default=str), encoding="utf-8")

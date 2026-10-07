@@ -26,6 +26,7 @@ from urllib.parse import parse_qs, urlparse
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import lab  # noqa: E402
+import styles  # noqa: E402
 import queries  # noqa: E402
 from jupyter import Jupyter, JupyterError  # noqa: E402
 from remote import Remote, RemoteError  # noqa: E402
@@ -167,6 +168,20 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
                 return self._api(lab.presets)
             if path == "/api/lab/engines":
                 return self._api(lab.engines)
+            if path == "/api/lab/styles":                      # 화풍 테스트에 나오는 초안 종류
+                return self._api(styles.draft_styles)
+            if path == "/api/lab/categories":
+                return self._api(lambda: styles.categories(params.get("archived") == "1"))
+            parts = path.split("/")
+            if path.startswith("/api/lab/categories/") and len(parts) == 5:
+                return self._api(lambda: self._category(parts[4]))
+            if path.startswith("/api/lab/categories/") and len(parts) == 7 and parts[5] == "kinds":
+                return self._api(lambda: self._kind(parts[4], parts[6]))
+            if path.startswith("/lab-style-files/"):
+                target = styles.reference_file(parts[2], parts[3], parts[4]) if len(parts) == 5 else None
+                if target is None:
+                    return self._json(404, {"error": "없는 파일"})
+                return self._send(200, target.read_bytes(), "image/png")
             if path == "/api/lab/runs":
                 return self._api(lab.history)
             if path.startswith("/api/lab/runs/"):
@@ -192,7 +207,45 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
                 return self._api(lambda: self._media(path.split("/")[3]))
             if path == "/api/lab/runs":
                 return self._api(self._lab_start)
+            parts = path.split("/")
+            if path == "/api/lab/categories":
+                return self._api(lambda: self._category(styles.save_category(self._body())["id"]))
+            if path.startswith("/api/lab/categories/") and len(parts) == 6 and parts[5] == "archive":
+                return self._api(lambda: styles.archive(parts[4], None, bool(self._body().get("archived"))))
+            if path.startswith("/api/lab/categories/") and len(parts) == 6 and parts[5] == "kinds":
+                return self._api(lambda: self._kind_save(parts[4]))
+            if path.startswith("/api/lab/categories/") and len(parts) == 8 and parts[7] == "archive":
+                return self._api(lambda: styles.archive(parts[4], parts[6], bool(self._body().get("archived"))))
             self._json(404, {"error": "없는 경로"})
+
+        def _category(self, cid):
+            cat = styles.get_category(cid)
+            if cat is None:
+                raise ValueError("없는 카테고리입니다")
+            return {**cat, "manifest": styles.manifest_preview(cat) if cat["kinds"] or not cat["service"] else ""}
+
+        def _kind(self, cid, code):
+            kind = styles.get_kind(cid, code)
+            if kind is None:
+                raise ValueError("없는 종류입니다")
+            return kind
+
+        def _kind_save(self, cid):
+            body = self._body()
+            images = {}
+            for gender in styles.REFERENCES:
+                images.update(self._data_url(body.get(f"reference_{gender}"), gender))
+            return styles.save_kind(cid, body, images, list(body.get("remove") or []))
+
+        def _data_url(self, data_url, name) -> dict[str, bytes]:
+            if not data_url:
+                return {}
+            if "," not in data_url:
+                raise ValueError("이미지 형식이 올바르지 않습니다")
+            data = base64.b64decode(data_url.split(",", 1)[1])
+            if len(data) > MAX_UPLOAD:
+                raise ValueError("이미지가 15MB 를 넘습니다")
+            return {name: data}
 
         def _body(self) -> dict:
             size = int(self.headers.get("Content-Length") or 0)
@@ -208,7 +261,12 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
             if engine is None:
                 raise ValueError("알 수 없는 모델입니다")
             code = None
-            if body.get("stylePreset"):
+            draft = None
+            if str(body.get("stylePreset") or "").startswith("draft:"):
+                draft = styles.find_draft(body["stylePreset"])
+                if draft is None or draft["engine"] != engine["engine"]:
+                    raise ValueError("이 모델의 초안 종류가 아닙니다")
+            elif body.get("stylePreset"):
                 code = queries._code(body.get("stylePreset"), "stylePreset")
                 preset = next((p for p in lab.presets() if p["stylePreset"] == code), None)
                 if preset is None or preset["engine"] != engine["engine"]:
@@ -224,21 +282,22 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
             params = lab.clean_params(engine["engine"], body.get("params"))
             images: dict[str, bytes] = {}
             for key, name in lab.IMAGES.items():
-                data_url = body.get(key) or ""
-                if not data_url:
-                    continue
-                if "," not in data_url:
-                    raise ValueError("이미지 형식이 올바르지 않습니다")
-                images[name] = base64.b64decode(data_url.split(",", 1)[1])
-                if len(images[name]) > MAX_UPLOAD:
-                    raise ValueError("이미지가 15MB 를 넘습니다")
+                images.update(self._data_url(body.get(key), name))
             if not engine["styleReference"]:
                 images.pop("style_ref.png", None)
             if not engine["template"]:
                 images.pop("template.png", None)
-            if code is None and engine["engine"] == "kontext" and not params.get("prompt", "").strip():
+            style = None
+            local_only: dict[str, bytes] = {}
+            if draft is not None:
+                # 초안 종류의 남·여 reference 를 쓴다. 테스트 화면에서 따로 올린 그림이 있으면 그것이 먼저다
+                send, local_only = styles.draft_images(draft)
+                if "style_ref.png" not in images and "template.png" not in images:
+                    images.update(send)
+                style = styles.run_style(draft)
+            elif code is None and engine["engine"] == "kontext" and not params.get("prompt", "").strip():
                 raise ValueError("직접 입력 화풍은 프롬프트가 필요합니다")
-            if code is None and engine["engine"] == "inswapper" and "template.png" not in images:
+            elif code is None and engine["engine"] == "inswapper" and "template.png" not in images:
                 raise ValueError("직접 입력 화풍은 템플릿 이미지가 필요합니다")
             source = None
             if "input.png" not in images:
@@ -246,12 +305,13 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
                     raise ValueError("사진을 골라 주세요")
                 detail, images["input.png"] = source_photo(remote, str(body["fromItem"]), "LAB_INPUT_LOCAL")
                 source = {"itemId": detail["item"]["itemId"], "stylePreset": detail["item"]["stylePreset"]}
-            request = {"engine": engine["engine"], "stylePreset": code, "gender": gender, "params": params,
+            request = {"engine": engine["engine"], "stylePreset": code, "style": style, "gender": gender, "params": params,
                        "captureSteps": capture if engine["captureSteps"] else 0, "label": (body.get("label") or "")[:80],
                        "source": source, "images": sorted(images)}
+            request["images"] = sorted({*images, *local_only})
             run_id = lab.new_run_id()
-            lab.save_request(run_id, request, images)
-            gpu_request = {k: request[k] for k in ("engine", "stylePreset", "gender", "params", "captureSteps")}
+            lab.save_request(run_id, request, {**images, **local_only})   # PuLID reference 는 비교용이라 이 PC 에만
+            gpu_request = {k: request[k] for k in ("engine", "stylePreset", "style", "gender", "params", "captureSteps")}
             try:
                 jupyter.start_run(run_id, gpu_request, images, lab.RUNNER.read_bytes(), lab.RUNNER_LIB.read_bytes())
             except Exception as exc:           # 올리지 못한 실행이 기록에 '대기'로 남지 않게 실패로 적어 둔다

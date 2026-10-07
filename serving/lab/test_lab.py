@@ -51,6 +51,28 @@ class KontextStyleRefTest(unittest.TestCase):
         self.assertEqual(g["scale"]["inputs"]["image"], ["stitch", 0])
 
 
+class DraftStyleTest(unittest.TestCase):
+    COMMON = {"QUALITY": "q", "MODEST": "modest", "NECK": "neck", "GLASSES": "g"}
+
+    def test_kontext_prompt_prefers_gendered_text(self):
+        style = {"prompt": "base", "prompt_female": "for her"}
+        self.assertEqual(runner.style_prompt(style, "female"), "for her")
+        self.assertEqual(runner.style_prompt(style, "male"), "base")
+        self.assertIsNone(runner.style_prompt({"prompt": "  "}, "male"))
+        self.assertIsNone(runner.style_prompt(None, "male"))
+
+    def test_pulid_positive_follows_build_graph_order(self):
+        style = {"subject_male": "a knight, {MODEST}", "scene": "castle"}
+        self.assertEqual(runner.pulid_positive(style, "female", self.COMMON, glasses_text="g", extra="red cape"),
+                         "a knight, modest, red cape, g, castle, q")
+
+    def test_pulid_positive_rejects_missing_scene_and_unknown_slot(self):
+        with self.assertRaises(runner.LabError):
+            runner.pulid_positive({"subject_male": "a"}, "male", self.COMMON)
+        with self.assertRaises(runner.LabError):
+            runner.pulid_positive({"subject_male": "a {HAT}", "scene": "s"}, "male", self.COMMON)
+
+
 class FakeChannel:
     def __init__(self):
         self.acks, self.nacks = [], []

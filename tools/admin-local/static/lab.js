@@ -1,4 +1,5 @@
-// 실험실. 모델·화풍을 고르고 테스트 사진(또는 모니터 항목의 원본)과 참고 이미지로 돌려 입력부터 결과까지 단계별로 본다.
+// 화풍 테스트. 모델·화풍(서비스 프리셋 · "화풍 추가"의 초안 · 직접 입력)을 고르고 테스트 사진(또는 모니터 항목의 원본)과
+// 참고 이미지로 돌려 입력부터 결과까지 단계별로 본다.
 // 실행 코드는 운영 관리자 실험 워커와 같은 serving/lab/runner.py 다.
 import { h, api, formatMs, showError } from "./app.js";
 
@@ -10,7 +11,7 @@ const ENGINE = { pulid: "FLUX + PuLID", kontext: "FLUX Kontext + LoRA", inswappe
 const CUSTOM = "__custom__";
 const $ = (id) => document.getElementById(id);
 const lab = {
-  engines: [], presets: [], engine: "kontext", images: { image: null, styleRef: null, template: null },
+  engines: [], presets: [], drafts: [], engine: "kontext", images: { image: null, styleRef: null, template: null },
   fromItem: null, open: null, timer: null, compare: new Set(), ready: false,
 };
 
@@ -18,17 +19,22 @@ const stageLabel = (stage) => (stage?.startsWith("step_") ? `중간 스텝 ${Num
 const presetOf = (code) => lab.presets.find((p) => p.stylePreset === code);
 const engineOf = (name) => lab.engines.find((e) => e.engine === name);
 const fileUrl = (run, name) => `/lab-files/${run}/${name}`;
-const runTitle = (r) => r.stylePreset ?? `직접 입력 · ${ENGINE[r.engine] ?? r.engine ?? "-"}`;
+const draftOf = (value) => (value?.startsWith("draft:") ? lab.drafts.find((d) => d.value === value) ?? null : null);
+const runTitle = (r) => r.stylePreset ?? (r.style?.name ? `${r.style.name} (추가한 종류)` : `직접 입력 · ${ENGINE[r.engine] ?? r.engine ?? "-"}`);
+const GENDER_LABEL = { male: "남성", female: "여성" };
+const REFERENCE_USE = { kontext: "화풍 참고로", inswapper: "템플릿으로", pulid: "비교용으로만(PuLID 는 참고 그림을 못 씀)" };
 
 // 지금 폼이 가리키는 설정: 프리셋을 골랐으면 그 값, 직접 입력이면 모델의 기본값.
 function current() {
   const engine = engineOf(lab.engine);
   const code = $("lab-form").elements.stylePreset.value;
-  const preset = code === CUSTOM ? null : presetOf(code) ?? null;
+  const draft = draftOf(code);
+  const preset = code === CUSTOM || draft ? null : presetOf(code) ?? null;
   return {
-    engine, preset, fields: engine.fields, captureSteps: engine.captureSteps,
-    defaults: preset ? preset.defaults : engine.customDefaults ?? {},
-    label: preset ? `${ENGINE[preset.engine] ?? preset.engine} · ${preset.rarity ?? "-"} · ${preset.display}` : `${engine.model} · 직접 입력`,
+    engine, preset, draft, fields: engine.fields, captureSteps: engine.captureSteps,
+    defaults: preset ? preset.defaults : { ...(engine.customDefaults ?? {}), ...(draft?.params ?? {}) },
+    label: preset ? `${ENGINE[preset.engine] ?? preset.engine} · ${preset.rarity ?? "-"} · ${preset.display}`
+      : draft ? `${engine.model} · ${draft.categoryName} > ${draft.name} (${draft.rarity}, 추가한 종류)` : `${engine.model} · 직접 입력`,
   };
 }
 
@@ -50,9 +56,22 @@ function renderPresets(selected) {
   select.replaceChildren(
     ...[...groups].map(([display, list]) => h("optgroup", { label: display },
       list.map((p) => h("option", { value: p.stylePreset }, `${p.stylePreset} (${p.rarity ?? "-"})`)))),
+    ...draftGroups(),
     ...(engine.custom ? [h("option", { value: CUSTOM }, `직접 입력 (${engine.engine === "kontext" ? "프롬프트" : "템플릿 이미지"})`)] : []),
   );
   if (selected && [...select.options].some((o) => o.value === selected)) select.value = selected;
+}
+
+// 화풍 추가에서 만든 종류를 카테고리별로 묶는다
+function draftGroups() {
+  const groups = new Map();
+  for (const d of lab.drafts.filter((item) => item.engine === lab.engine)) {
+    const label = `${d.categoryName} · 추가한 종류${d.categoryService ? "" : " (새 카테고리)"}`;
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(d);
+  }
+  return [...groups].map(([label, list]) => h("optgroup", { label },
+    list.map((d) => h("option", { value: d.value }, `${d.name} · ${d.code} (${d.rarity})`))));
 }
 
 function renderImages() {
@@ -72,12 +91,10 @@ function chooseEngine(name, presetCode) {
   renderFields();
 }
 
-function renderFields(values) {
-  const cur = current();
-  const shown = values ?? cur.defaults;
-  const box = $("lab-fields");
-  box.replaceChildren(...cur.fields.map((f) => {
-    const value = shown?.[f.key] ?? cur.defaults[f.key];
+// 조절값 입력 칸. "화풍 추가" 화면도 같은 칸으로 초안의 기본값을 받는다.
+export function fieldInputs(fields, values, defaults, promptHint = "비워 두면 프리셋 그대로") {
+  return fields.map((f) => {
+    const value = values?.[f.key] ?? defaults?.[f.key];
     if (f.kind === "bool") {
       return h("label", { class: "check" }, h("input", { type: "checkbox", name: `p_${f.key}`, checked: !!value }), f.label);
     }
@@ -87,18 +104,15 @@ function renderFields(values) {
       return h("label", {}, f.label, select);
     }
     if (f.kind === "text") {
-      const area = h("textarea", { name: `p_${f.key}`, placeholder: cur.preset ? "비워 두면 프리셋 그대로" : "직접 입력은 프롬프트가 필요합니다" });
+      const area = h("textarea", { name: `p_${f.key}`, placeholder: promptHint });
       area.value = value ?? "";
       return h("label", { class: "wide" }, f.label, area);
     }
     return h("label", {}, f.label, h("input", { type: "number", name: `p_${f.key}`, step: f.step ?? "any", min: f.min, max: f.max, value: value ?? "" }));
-  }));
-  $("lab-capture-row").hidden = !cur.captureSteps;
-  box.prepend(h("p", { class: "muted wide" }, cur.label));
+  });
 }
 
-function formParams(fields) {
-  const form = $("lab-form");
+export function readFields(form, fields) {
   const params = {};
   for (const f of fields) {
     const el = form.elements[`p_${f.key}`];
@@ -106,6 +120,25 @@ function formParams(fields) {
     params[f.key] = f.kind === "bool" ? el.checked : el.value;
   }
   return params;
+}
+
+function renderFields(values) {
+  const cur = current();
+  const hint = cur.preset ? "비워 두면 프리셋 그대로" : cur.draft ? "비워 두면 초안 문구 그대로" : "직접 입력은 프롬프트가 필요합니다";
+  $("lab-fields").replaceChildren(h("p", { class: "muted wide" }, cur.label), ...fieldInputs(cur.fields, values ?? cur.defaults, cur.defaults, hint));
+  $("lab-capture-row").hidden = !cur.captureSteps;
+  const note = $("lab-draft-note");
+  note.hidden = !cur.draft;
+  if (cur.draft) {
+    const refs = (cur.draft.references ?? []).map((g) => GENDER_LABEL[g]);
+    note.textContent = refs.length
+      ? `이 종류의 ${refs.join("·")} reference 를 ${REFERENCE_USE[cur.draft.engine]} 씁니다(테스트 사진 성별에 맞는 것). 아래에 따로 올린 그림이 있으면 그것이 먼저입니다.`
+      : "이 종류는 reference 사진 없이 문구만 씁니다.";
+  }
+}
+
+function formParams(fields) {
+  return readFields($("lab-form"), fields);
 }
 
 function setImage(key, file) {
@@ -141,12 +174,12 @@ async function submit(event) {
   const cur = current();
   const params = formParams(cur.fields);
   if (!lab.images.image && !lab.fromItem) { showError(new Error("입력 사진을 골라 주세요")); return; }
-  if (!cur.preset && cur.engine.engine === "kontext" && !params.prompt?.trim()) { showError(new Error("직접 입력은 프롬프트가 필요합니다")); return; }
-  if (!cur.preset && cur.engine.engine === "inswapper" && !lab.images.template) { showError(new Error("직접 입력은 템플릿 이미지가 필요합니다")); return; }
+  if (!cur.preset && !cur.draft && cur.engine.engine === "kontext" && !params.prompt?.trim()) { showError(new Error("직접 입력은 프롬프트가 필요합니다")); return; }
+  if (!cur.preset && !cur.draft && cur.engine.engine === "inswapper" && !lab.images.template) { showError(new Error("직접 입력은 템플릿 이미지가 필요합니다")); return; }
   $("lab-run").disabled = true;
   try {
     const body = {
-      engine: cur.engine.engine, stylePreset: cur.preset?.stylePreset ?? null, gender: form.elements.gender.value, params,
+      engine: cur.engine.engine, stylePreset: cur.preset?.stylePreset ?? cur.draft?.value ?? null, gender: form.elements.gender.value, params,
       captureSteps: cur.captureSteps ? Number(form.elements.captureSteps.value || 0) : 0, label: form.elements.label.value,
       ...(lab.images.image ? { image: lab.images.image } : { fromItem: lab.fromItem }),
       ...(cur.engine.styleReference && lab.images.styleRef ? { styleRef: lab.images.styleRef } : {}),
@@ -221,7 +254,12 @@ function inputFigures(runId, request, result) {
     figure(request.source ? `입력 (회원 #${request.source.itemId} 원본)` : "입력 사진", fileUrl(runId, "input.png"), true),
     sent.includes("style_ref.png") ? figure("화풍 참고 (올린 그림)", fileUrl(runId, "style_ref.png"), true) : null,
     sent.includes("template.png") ? figure("템플릿 (올린 그림)", fileUrl(runId, "template.png"), true) : null,
-    result?.engine === "inswapper" && !sent.includes("template.png") && result.reference
+    ...["male", "female"].flatMap((g) => [
+      sent.includes(`template_${g}.png`) ? figure(`${GENDER_LABEL[g]} reference (템플릿)`, fileUrl(runId, `template_${g}.png`), true) : null,
+      sent.includes(`style_ref_${g}.png`) ? figure(`${GENDER_LABEL[g]} reference (화풍 참고)`, fileUrl(runId, `style_ref_${g}.png`), true) : null,
+      sent.includes(`reference_${g}.png`) ? figure(`${GENDER_LABEL[g]} reference (비교용)`, fileUrl(runId, `reference_${g}.png`), true) : null,
+    ]),
+    result?.engine === "inswapper" && !sent.some((n) => n.startsWith("template")) && result.reference
       ? figure("프리셋 템플릿", fileUrl(runId, result.reference)) : null,
   ];
 }
@@ -276,7 +314,8 @@ function loadIntoForm(request) {
   const form = $("lab-form");
   const engine = request.engine ?? presetOf(request.stylePreset)?.engine;
   if (!engineOf(engine)) return;
-  chooseEngine(engine, request.stylePreset ?? CUSTOM);
+  const draft = request.style?.code && lab.drafts.find((d) => d.code === request.style.code);
+  chooseEngine(engine, request.stylePreset ?? draft?.value ?? CUSTOM);
   form.elements.gender.value = request.gender || "auto";
   form.elements.captureSteps.value = request.captureSteps ?? 0;
   renderFields({ ...current().defaults, ...(request.params || {}) });
@@ -329,6 +368,27 @@ async function renderCompare() {
   )));
 }
 
+// ── "화풍 추가" 와 잇기 ──
+export async function reloadDrafts() {
+  try {
+    lab.drafts = await api("/api/lab/styles");
+  } catch (error) {
+    showError(error);
+    return;
+  }
+  if (lab.engines.length) {
+    const keep = $("lab-preset").value;
+    renderPresets(keep);
+    if ($("lab-preset").value !== keep) renderFields();
+  }
+}
+
+export async function testDraft(value) {
+  await reloadDrafts();
+  const draft = draftOf(value);
+  if (draft) chooseEngine(draft.engine, value);
+}
+
 // ── 모니터에서 넘어오기 ──
 export function openFromItem(item) {
   lab.fromItem = item.itemId;
@@ -349,7 +409,7 @@ export async function initLab() {
     $("lab-setup").hidden = status.ready;
     $("lab-setup").textContent = "GPU 서버 설정(local.json 의 jupyter·gpu)이 없어 실행할 수 없습니다. README 의 실험실 준비를 보세요.";
     $("lab-run").disabled = !status.ready;
-    [lab.engines, lab.presets] = await Promise.all([api("/api/lab/engines"), api("/api/lab/presets")]);
+    [lab.engines, lab.presets, lab.drafts] = await Promise.all([api("/api/lab/engines"), api("/api/lab/presets"), api("/api/lab/styles")]);
   } catch (error) {
     showError(error);
     return;

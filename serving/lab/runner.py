@@ -12,10 +12,15 @@
 request (메시지 payload 중 실행에 쓰는 부분):
   engine        inswapper | pulid | kontext | original(로컬 도구만)
   stylePreset   프리셋 코드. 없으면 직접 입력(kontext 는 prompt, inswapper 는 template 필수)
+  style         (선택) 아직 카탈로그에 없는 화풍 정의 — 로컬 도구 "화풍 추가"의 초안. stylePreset 대신 쓴다
+                {code, name, prompt, prompt_male, prompt_female}            kontext
+                {code, name, subject_male, subject_female, scene}            pulid (화질 문구는 concept 공통값)
+                inswapper 는 workdir 의 template_male.png · template_female.png
   gender        male | female | auto
   params        엔진별 조절값 (PARAM_FIELDS)
   captureSteps  디퓨전 중간 단계 수 (0~6)
-workdir 에 input.png 가 있어야 하고, 있으면 style_ref.png · template.png 를 쓴다.
+workdir 에 input.png 가 있어야 하고, 있으면 style_ref.png · style_ref_{male,female}.png · template.png ·
+template_{male,female}.png 를 쓴다(성별 그림이 먼저).
 남기는 파일: analysis.png, reference.png(있을 때), step_N.png, result.png, cutout.png(BGRA)
 """
 from __future__ import annotations
@@ -124,6 +129,33 @@ def with_style_ref(graph: dict, image_name: str, mode: str = "chain") -> dict:
     return g
 
 
+def style_prompt(style: dict | None, gender: str) -> str | None:
+    """초안 화풍의 Kontext 문장. 성별 문장이 있으면 그것, 없으면 공통 문장."""
+    if not style:
+        return None
+    return (style.get(f"prompt_{gender}") or style.get("prompt") or "").strip() or None
+
+
+def pulid_positive(style: dict, gender: str, common: dict, *, glasses_text: str | None = None,
+                   extra: str = "") -> str:
+    """초안 화풍의 PuLID 문장. engines.pulid.build_graph 와 같은 순서: 주체, (안경), (추가), 장면, 화질.
+    common 은 concept.yaml common 을 대문자 키로 바꾼 것 — 주체의 {MODEST} {NECK} 자리를 채운다."""
+    subject = style.get(f"subject_{gender}") or style.get("subject_male") or style.get("subject_female")
+    scene = (style.get("scene") or "").strip()
+    if not subject or not scene:
+        raise LabError("STYLE_INVALID", "PuLID 화풍은 주체(남·여 중 하나 이상)와 장면 문구가 필요합니다")
+    try:
+        subject = subject.strip().format(**common)
+    except (KeyError, IndexError, ValueError):
+        raise LabError("STYLE_INVALID", "주체 문구의 {...} 자리는 {MODEST} {NECK} 만 쓸 수 있습니다") from None
+    parts = [subject, scene, common["QUALITY"]]
+    if glasses_text:
+        parts.insert(1, glasses_text)
+    if extra:
+        parts.insert(1, extra)
+    return ", ".join(parts)
+
+
 def capture_points(total: int, count: int) -> list[int]:
     count = max(0, min(MAX_CAPTURE, int(count)))
     if count == 0 or total <= 1:
@@ -176,6 +208,7 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
         raise LabError("ENGINE_INVALID", f"모르는 모델입니다: {engine}")
     params = clean_params(engine, req.get("params"))
     code = req.get("stylePreset") or None
+    style = req.get("style") if not code else None          # 초안 화풍(카탈로그에 아직 없음)
     coll = preset = None
     if code:
         try:
@@ -187,9 +220,8 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
     r = _Run(workdir, on_stage)
     src_path = workdir / "input.png"
     img = _read(src_path, "입력")
-    style_path = workdir / "style_ref.png"
     template_path = workdir / "template.png"
-    has_style = style_path.exists()
+    has_style = any(workdir.glob("style_ref*.png"))
     has_template = template_path.exists()
 
     # 1) 사진 분석 — 운영과 같은 antelopev2 검출 + 안경 판별
@@ -213,10 +245,20 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
                 "glassesRatio": info["glasses_ratio"], "gender": gender,
                 "faceHeightPct": round(100 * (y2 - y1) / img.shape[0], 1), "imageSize": info["image_size"]}
 
+    # 화풍 참고: 성별 그림(style_ref_<gender>.png, 화풍 추가의 남·여 reference)이 있으면 그것, 없으면 공통 그림
+    style_path = workdir / f"style_ref_{gender}.png"
+    if not style_path.exists():
+        style_path = workdir / "style_ref.png"
+    if has_style and not style_path.exists():
+        has_style = False
+        notes_pre = [f"이 화풍에 {'남성' if gender == 'male' else '여성'} 화풍 참고 그림이 없어 문장만으로 돌렸습니다"]
+    else:
+        notes_pre = []
+
     steps: list[dict] = []
     reference = None
     used: dict = {}
-    notes: list[str] = []
+    notes: list[str] = notes_pre
 
     def diffusion(graph: dict, total: int) -> np.ndarray:
         for k in capture_points(total, req.get("captureSteps", 0)):
@@ -227,19 +269,26 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
             return decode(submit(node, graph))
 
     if engine == "pulid":
-        if preset is None:
+        if preset is None and not style:
             raise LabError("PRESET_REQUIRED", "PuLID 는 화풍(프리셋)을 골라야 합니다")
         if has_style or has_template:
             notes.append("PuLID 는 참고 이미지를 쓰지 않습니다 (서버에 IP-Adapter·Redux 모델이 없음)")
-        from engines.pulid import build_graph
+        from engines import pulid
         name = stage(src_path, "_lab")
         try:
             kw = {k: params[k] for k in ("pulid_weight", "guidance", "steps", "pulid_start", "pulid_end") if k in params}
-            seed = int(params.get("seed", coll.get("pulid", {}).get("seed", 1000)))
+            seed_default = coll.get("pulid", {}).get("seed", 1000) if coll is not None else 1000
+            seed = int(params.get("seed", seed_default))
             choice = params.get("glasses", "auto")
             glasses = bool(info.get("glasses")) if choice == "auto" else choice == "on"
-            g = build_graph(name, prompt=params.get("prompt", ""), style=preset["key"], gender=gender, seed=seed,
-                            glasses=glasses, filename_prefix=f"lab/{workdir.name}", **kw)
+            if preset is not None:
+                g = pulid.build_graph(name, prompt=params.get("prompt", ""), style=preset["key"], gender=gender,
+                                      seed=seed, glasses=glasses, filename_prefix=f"lab/{workdir.name}", **kw)
+            else:
+                positive = pulid_positive(style, gender, pulid._COMMON, glasses_text=pulid.GLASSES if glasses else None,
+                                          extra=params.get("prompt", ""))
+                g = pulid.build(pulid.FluxPulidConfig(face_image=name, positive=positive, seed=seed,
+                                                      filename_prefix=f"lab/{workdir.name}", **kw))
             total = next(n["inputs"]["steps"] for n in g.values() if n["class_type"] == "KSampler")
             used = {"seed": seed, "steps": total, "glasses": glasses, **kw,
                     "prompt": next(n["inputs"]["text"] for k, n in g.items() if k == "pos")}
@@ -255,6 +304,8 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
         kx, lora, out = base.get("kontext", {}), base.get("lora") or {}, base.get("output", {})
         if params.get("prompt"):
             text = params["prompt"]
+        elif style_prompt(style, gender):
+            text = style_prompt(style, gender)
         elif preset is not None and "prompt" in preset:
             text = preset["prompt"]
         elif preset is not None:
@@ -304,8 +355,13 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
         from engines.inswapper import prepare_source, swap_into
         if has_style:
             notes.append("얼굴 교체는 화풍 참고 이미지를 쓰지 않습니다 (템플릿 이미지를 쓰세요)")
-        if has_template:
+        gendered = workdir / f"template_{gender}.png"
+        if gendered.exists():
+            ref, has_template = gendered, True
+        elif has_template:
             ref = template_path
+        elif style:
+            raise LabError("TEMPLATE_MISSING", f"이 화풍에 {'남성' if gender == 'male' else '여성'} 템플릿이 없습니다")
         elif preset is not None:
             ref_dir = coll.reference_dir() / gender
             ref = next((p for p in ref_dir.iterdir() if p.stem == preset["key"]), None) if ref_dir.exists() else None
@@ -344,6 +400,7 @@ def run(req: dict, workdir: pathlib.Path, *, node: str, ctx_id: int = -1,
 
     return {
         "engine": engine, "stylePreset": code, "collection": coll.id if coll is not None else None,
+        "style": {k: style.get(k) for k in ("code", "name")} if style else None,
         "rarity": (preset.get("rarity", coll.get("tier")) if preset is not None else None),
         "analysis": analysis, "used": used, "notes": notes, "steps": steps, "reference": reference,
         "resultSize": [int(final.shape[1]), int(final.shape[0])], "identity": identity,

@@ -95,6 +95,10 @@ def _custom_defaults(engine: str, collections) -> dict:
         coll = next((c for c in collections if c.engine == "kontext"), None)
         if coll is not None:
             return {**_defaults(coll, {}), "lora": False}
+    if engine == "pulid":
+        coll = next((c for c in collections if c.engine == "pulid"), None)
+        if coll is not None:
+            return _defaults(coll, {})
     if engine == "inswapper":
         return {"bangs": "keep", "crop": "upper", "restore": 0.0, "face_mask": False}
     return {}
@@ -105,7 +109,7 @@ def engines() -> list[dict]:
     import manifests
     collections = list(manifests.all_collections().values())
     return [{**e, "fields": FIELDS[e["engine"]], "captureSteps": e["engine"] in ("pulid", "kontext"),
-             "customDefaults": _custom_defaults(e["engine"], collections) if e["custom"] else None}
+             "customDefaults": _custom_defaults(e["engine"], collections)}
             for e in ENGINES]
 
 
@@ -199,8 +203,10 @@ def history(limit: int = 60) -> list[dict]:
         status = read_json(d.name, "status.json") or {}
         rows.append({
             "runId": d.name, "engine": req.get("engine"), "stylePreset": req.get("stylePreset"), "gender": req.get("gender"),
-            "params": req.get("params"), "label": req.get("label"), "source": req.get("source"),
+            "params": req.get("params"), "label": req.get("label"), "source": req.get("source"), "style": req.get("style"),
             "state": "done" if result else ("failed" if status.get("error") else status.get("stage", "queued")),
             "identity": result.get("identity") if result else None, "totalMs": result.get("totalMs") if result else None,
         })
     return rows
+
+

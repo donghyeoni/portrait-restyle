@@ -12,14 +12,91 @@
     <header class="shell__header">
       <div>
         <h1>카드 생성 도구 <span class="badge">로컬</span></h1>
-        <p class="muted">모니터는 운영 DB 를 읽기 전용으로 보고, 실험실은 GPU 서버에서 운영과 별도로 돌립니다.</p>
+        <p class="muted">모니터는 운영 DB 를 읽기 전용으로 보고, 화풍 추가·테스트는 GPU 서버에서 운영과 별도로 돌립니다.</p>
       </div>
       <nav class="tabs" aria-label="화면">
         <button type="button" class="tabs__tab" data-view="monitor" aria-current="page">모니터</button>
-        <button type="button" class="tabs__tab" data-view="lab">실험실</button>
+        <button type="button" class="tabs__tab" data-view="styles">화풍 추가</button>
+        <button type="button" class="tabs__tab" data-view="lab">화풍 테스트</button>
       </nav>
     </header>
     <div id="error" class="notice notice--error" hidden></div>
+
+    <main id="view-styles" class="view" hidden>
+      <div class="styles-grid">
+        <section class="panel">
+          <div class="panel__head">
+            <div><h2>카테고리</h2><p class="muted">카테고리마다 모델이 하나입니다(서비스와 같음). 서비스 카테고리에는 종류만 더할 수 있습니다.</p></div>
+            <button type="button" class="btn btn--primary btn--small" id="cat-new">새 카테고리</button>
+          </div>
+          <label class="check muted"><input type="checkbox" id="cat-archived" /> 보관한 것도 보기</label>
+          <div class="style-list" id="cat-list"></div>
+        </section>
+
+        <div class="styles-main">
+          <section class="panel">
+            <form id="cat-form" class="lab-form">
+              <div class="panel__head">
+                <h2 id="cat-title">새 카테고리</h2>
+                <span class="muted" id="cat-badge"></span>
+              </div>
+              <div id="cat-edit">
+                <div class="engine-pick engine-pick--three" id="cat-engines" role="radiogroup" aria-label="모델"></div>
+                <p class="muted" id="cat-engine-help"></p>
+                <div class="style-row">
+                  <label>id <input name="id" placeholder="예: hero" autocomplete="off" /></label>
+                  <label>이름 <input name="name" placeholder="예: 히어로" maxlength="40" /></label>
+                  <label>기본 등급 <select name="rarity"><option>N</option><option>R</option><option selected>SR</option><option>SSR</option></select></label>
+                </div>
+                <label>메모 <textarea name="memo" placeholder="어떤 카테고리인지"></textarea></label>
+                <div class="toolbar">
+                  <button type="submit" class="btn btn--primary" id="cat-save">카테고리 저장</button>
+                  <button type="button" class="btn btn--ghost btn--small" id="cat-archive" hidden>보관</button>
+                </div>
+              </div>
+              <p class="muted" id="cat-service" hidden></p>
+            </form>
+          </section>
+
+          <section class="panel" id="kind-panel" hidden>
+            <div class="panel__head">
+              <div><h2>종류</h2><p class="muted" id="kind-help"></p></div>
+              <button type="button" class="btn btn--primary btn--small" id="kind-new">종류 추가</button>
+            </div>
+            <div class="kind-list" id="kind-list"></div>
+            <form id="kind-form" class="lab-form kind-form" hidden>
+              <div class="panel__head">
+                <h3 id="kind-title">새 종류</h3>
+                <span class="muted" id="kind-updated"></span>
+              </div>
+              <div class="style-row">
+                <label>코드 <input name="code" placeholder="예: NEON_WEBTOON" autocomplete="off" /></label>
+                <label>이름 <input name="name" placeholder="예: 네온 웹툰" maxlength="40" /></label>
+                <label>등급 <select name="rarity"><option>N</option><option>R</option><option>SR</option><option>SSR</option></select></label>
+              </div>
+              <p class="muted" id="kind-ref-help"></p>
+              <div class="lab-images" id="kind-refs"></div>
+              <div id="kind-text" class="style-text"></div>
+              <h3>기본값 <span class="muted">— 화풍 테스트에서 이 값으로 시작합니다</span></h3>
+              <div id="kind-params" class="lab-fields"></div>
+              <label>메모 <textarea name="memo" placeholder="무엇을 노린 종류인지"></textarea></label>
+              <div class="toolbar">
+                <button type="submit" class="btn btn--primary" id="kind-save">종류 저장</button>
+                <button type="button" class="btn btn--ghost" id="kind-test" disabled>이 종류로 테스트</button>
+                <button type="button" class="btn btn--ghost btn--small" id="kind-archive" hidden>보관</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel" id="manifest-panel" hidden>
+            <details>
+              <summary>서비스에 합칠 때 (manifest)</summary>
+              <pre class="prompt" id="cat-manifest"></pre>
+            </details>
+          </section>
+        </div>
+      </div>
+    </main>
 
     <main id="view-lab" class="view" hidden>
       <div class="lab-grid">
@@ -29,6 +106,7 @@
             <div class="engine-pick" id="lab-engines" role="radiogroup" aria-label="모델"></div>
             <label>화풍 <select name="stylePreset" id="lab-preset"></select></label>
             <p class="muted" id="lab-engine-help" hidden></p>
+            <p class="notice notice--info" id="lab-draft-note" hidden></p>
             <div class="lab-images">
               <div class="lab-source">
                 <label class="drop" data-image="image">
