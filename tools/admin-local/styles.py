@@ -46,7 +46,7 @@ def _read_json(path: pathlib.Path) -> dict:
 
 def check_category_id(cid: str) -> str:
     if not _CATEGORY_ID.match(cid or ""):
-        raise ValueError("카테고리 id 는 영문 소문자로 시작하는 소문자·숫자·밑줄 2~31자입니다 (예: hero)")
+        raise ValueError("카테고리 id 는 영문 소문자로 시작하는 소문자·숫자·밑줄 2~31자입니다 (예: sports)")
     return cid
 
 
