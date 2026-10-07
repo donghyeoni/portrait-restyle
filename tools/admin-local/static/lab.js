@@ -11,7 +11,7 @@ const ENGINE = { pulid: "FLUX + PuLID", kontext: "FLUX Kontext + LoRA", inswappe
 const CUSTOM = "__custom__";
 const $ = (id) => document.getElementById(id);
 const lab = {
-  engines: [], presets: [], drafts: [], engine: "inswapper", images: { image: null, styleRef: null, template: null },
+  engines: [], presets: [], drafts: [], engine: "inswapper", images: { image: null },     // 테스트는 입력 사진만 올린다
   fromItem: null, open: null, timer: null, compare: new Set(), ready: false,
 };
 
@@ -76,8 +76,6 @@ function draftGroups() {
 
 function renderImages() {
   const engine = engineOf(lab.engine);
-  document.querySelector('[data-image="styleRef"]').hidden = !engine.styleReference;
-  document.querySelector('[data-image="template"]').hidden = !engine.template;
   const help = $("lab-engine-help");
   help.textContent = engine.customHelp;
   help.hidden = !engine.customHelp;
@@ -132,7 +130,7 @@ function renderFields(values) {
   if (cur.draft) {
     const refs = (cur.draft.references ?? []).map((g) => GENDER_LABEL[g]);
     note.textContent = refs.length
-      ? `이 종류의 ${refs.join("·")} reference 를 ${REFERENCE_USE[cur.draft.engine]} 씁니다(테스트 사진 성별에 맞는 것). 아래에 따로 올린 그림이 있으면 그것이 먼저입니다.`
+      ? `이 종류의 ${refs.join("·")} reference 를 ${REFERENCE_USE[cur.draft.engine]} 씁니다(테스트 사진 성별에 맞는 것).`
       : "이 종류는 reference 사진 없이 문구만 씁니다.";
   }
 }
@@ -175,15 +173,12 @@ async function submit(event) {
   const params = formParams(cur.fields);
   if (!lab.images.image && !lab.fromItem) { showError(new Error("입력 사진을 골라 주세요")); return; }
   if (!cur.preset && !cur.draft && cur.engine.engine === "kontext" && !params.prompt?.trim()) { showError(new Error("직접 입력은 프롬프트가 필요합니다")); return; }
-  if (!cur.preset && !cur.draft && cur.engine.engine === "inswapper" && !lab.images.template) { showError(new Error("직접 입력은 템플릿 이미지가 필요합니다")); return; }
   $("lab-run").disabled = true;
   try {
     const body = {
       engine: cur.engine.engine, stylePreset: cur.preset?.stylePreset ?? cur.draft?.value ?? null, gender: form.elements.gender.value, params,
       captureSteps: cur.captureSteps ? Number(form.elements.captureSteps.value || 0) : 0, label: form.elements.label.value,
       ...(lab.images.image ? { image: lab.images.image } : { fromItem: lab.fromItem }),
-      ...(cur.engine.styleReference && lab.images.styleRef ? { styleRef: lab.images.styleRef } : {}),
-      ...(cur.engine.template && lab.images.template ? { template: lab.images.template } : {}),
     };
     const { runId } = await api("/api/lab/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     void loadHistory();

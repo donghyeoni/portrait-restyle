@@ -19,7 +19,8 @@ RUNS = HERE / "lab-runs"
 RUNNER = HERE / "lab" / "gpu_lab.py"
 RUNNER_LIB = REPO / "serving" / "lab" / "runner.py"      # 운영 관리자 실험 워커와 같은 실행 코드
 MAX_CAPTURE = 6                                          # runner.MAX_CAPTURE 와 같다
-IMAGES = {"image": "input.png", "styleRef": "style_ref.png", "template": "template.png"}
+# 화풍 테스트에서 올리는 그림은 입력 사진 하나뿐이다(2026-10-07 결정). 템플릿·화풍 참고는 화풍 추가의 종류 reference 로만 넣는다.
+IMAGES = {"image": "input.png"}
 _RUN_ID = re.compile(r"^[a-z0-9_-]{6,64}$")
 _FILE = re.compile(r"^[a-z0-9_]{1,40}\.(png|json)$")
 
@@ -65,8 +66,7 @@ ENGINES = [
      "styleReference": False, "template": False, "custom": False,
      "customHelp": "PuLID 는 참고 이미지를 쓰지 않습니다(서버에 IP-Adapter·Redux 모델이 없음). 프롬프트와 값만 바꿉니다."},
     {"engine": "inswapper", "label": "얼굴 교체", "model": "inswapper_128 + GFPGAN",
-     "styleReference": False, "template": True, "custom": True,
-     "customHelp": "직접 입력은 템플릿(코스튬) 이미지가 필요합니다. 템플릿을 올리면 프리셋 그림 대신 씁니다."},
+     "styleReference": False, "template": False, "custom": False, "customHelp": ""},
     {"engine": "original", "label": "원본 크롭", "model": "얼굴 기준 크롭",
      "styleReference": False, "template": False, "custom": False, "customHelp": ""},
 ]

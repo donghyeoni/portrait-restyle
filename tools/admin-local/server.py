@@ -313,22 +313,15 @@ def make_handler(remote: Remote, cache: MediaCache, team_public: pathlib.Path | 
             images: dict[str, bytes] = {}
             for key, name in lab.IMAGES.items():
                 images.update(self._data_url(body.get(key), name))
-            if not engine["styleReference"]:
-                images.pop("style_ref.png", None)
-            if not engine["template"]:
-                images.pop("template.png", None)
             style = None
             local_only: dict[str, bytes] = {}
             if draft is not None:
-                # 초안 종류의 남·여 reference 를 쓴다. 테스트 화면에서 따로 올린 그림이 있으면 그것이 먼저다
+                # 추가한 종류의 남·여 reference 를 쓴다(테스트 화면은 입력 사진만 받는다)
                 send, local_only = styles.draft_images(draft)
-                if "style_ref.png" not in images and "template.png" not in images:
-                    images.update(send)
+                images.update(send)
                 style = styles.run_style(draft)
             elif code is None and engine["engine"] == "kontext" and not params.get("prompt", "").strip():
                 raise ValueError("직접 입력 화풍은 프롬프트가 필요합니다")
-            elif code is None and engine["engine"] == "inswapper" and "template.png" not in images:
-                raise ValueError("직접 입력 화풍은 템플릿 이미지가 필요합니다")
             source = None
             if "input.png" not in images:
                 if not body.get("fromItem"):
